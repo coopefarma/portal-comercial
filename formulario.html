@@ -77,10 +77,18 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
 .tag-sugestao{font-size:10px;color:#856404;background:#fff3cd;padding:2px 7px;border-radius:5px;font-weight:600}
 
 /* ── QA (respostas) ── */
-.qa{border-bottom:1px solid #f1f5f9;padding:10px 0}
-.qa:last-child{border-bottom:none}
-.qa .q{font-weight:700;font-size:12px;color:#475569;text-transform:uppercase;letter-spacing:.3px}
-.qa .a{font-size:14px;margin-top:4px;white-space:pre-wrap;color:#1a1a2e}
+.qa{border-radius:8px;overflow:hidden;margin-bottom:12px;border:1px solid #e2e8f0}
+.qa:last-child{margin-bottom:0}
+.qa .q{background:#e8f5e9;color:#1B5E20;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.3px;padding:8px 14px}
+.qa .a{font-size:14px;padding:10px 14px;white-space:pre-wrap;color:#1a1a2e;background:#fff}
+
+/* ── IMPRESSÃO ── */
+@media print{
+  .no-print,.topbar{display:none!important}
+  body{background:#fff}
+  .main{padding:0!important;max-width:100%!important}
+  .f-card{box-shadow:none!important;border:1px solid #ccc!important;break-inside:avoid}
+}
 
 /* ── EMPTY / LOADING ── */
 .empty{text-align:center;padding:48px 20px;color:#aaa;background:#fff;border-radius:12px}
@@ -100,6 +108,11 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
 .form-header .logo-img{height:60px;object-fit:contain;margin-bottom:12px;background:#fff;border-radius:8px;padding:4px 10px}
 .form-header h1{font-family:'Poppins',sans-serif;font-size:1.4rem;font-weight:800;margin-bottom:4px}
 .form-header p{font-size:.88rem;opacity:.88}
+.hero-banner{background:#1B5E20;display:flex;align-items:stretch;flex-wrap:wrap}
+.hero-img{width:220px;height:280px;object-fit:cover;object-position:top center;flex-shrink:0;display:block}
+.hero-text{flex:1;min-width:220px;color:#fff;font-family:'Poppins',sans-serif;font-weight:800;
+  font-size:1.3rem;padding:24px 28px;line-height:1.4;display:flex;align-items:center}
+@media(max-width:600px){.hero-banner{flex-direction:column}.hero-img{width:100%;height:230px;object-position:top center}.hero-text{font-size:1.1rem;padding:18px 20px;text-align:center}}
 .form-container{max-width:760px;margin:28px auto;padding:0 16px 60px;width:100%}
 .form-card{background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.09);margin-bottom:20px}
 .form-card h2{font-family:'Poppins',sans-serif;font-size:.98rem;font-weight:700;color:#1B5E20;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid #e8f5e9}
@@ -130,6 +143,10 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
     <img class="logo-img" src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
     <h1 id="pr-titulo">Questionário Comercial</h1>
     <p>Preencha as informações abaixo</p>
+  </div>
+  <div class="hero-banner">
+    <img class="hero-img" src="banner-influencer.jpeg" alt="Coopefarma" onerror="this.parentElement.style.display='none'"/>
+    <div class="hero-text">Venha fazer parte da rede que de fato pode mudar a sua empresa.</div>
   </div>
   <div class="form-container">
     <div id="pr-main">
@@ -226,8 +243,9 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
 
     <!-- RESPOSTAS -->
     <div class="page" id="pg-respostas">
-      <div class="page-header">
+      <div class="page-header no-print">
         <button class="btn btn-outline btn-sm" onclick="irPara('lista')">← Formulários</button>
+        <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Imprimir</button>
       </div>
       <div id="respostas-wrap"></div>
     </div>
@@ -442,7 +460,7 @@ async function abrirRespostas(id){
     <div class="f-card-nome">${esc(form.destinatario_nome||form.titulo)}</div>
     <div class="f-card-meta">${esc(form.titulo)} · criado em ${fmtData(form.created_at)}</div>
     <div class="link-box">${esc(BASE+'?fc='+form.token)}</div>
-    <button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="copiarLink('${form.token}')">🔗 Copiar link</button>
+    <button class="btn btn-outline btn-sm no-print" style="margin-top:10px" onclick="copiarLink('${form.token}')">🔗 Copiar link</button>
   </div>`;
   if(e2||!resps?.length){
     html+='<div class="empty"><div class="empty-icon">📭</div><p>Ainda não há respostas para este formulário.</p></div>';
