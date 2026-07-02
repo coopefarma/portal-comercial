@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CompraCoop — Compra Coletiva Coopefarma</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
+.hidden{display:none!important}
+.btn{padding:9px 18px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;font-family:'Inter',sans-serif}
+.btn-primary{background:#15a563;color:#fff}.btn-primary:hover{background:#0f8a52}
+.btn-danger{background:#e8112d;color:#fff}.btn-danger:hover{background:#c00d26}
+.btn-outline{background:#fff;color:#444;border:1.5px solid #ddd}.btn-outline:hover{border-color:#15a563;color:#15a563}
+.btn-blue{background:#1565C0;color:#fff}.btn-blue:hover{background:#0D47A1}
+.btn-sm{padding:6px 12px;font-size:12px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-verde{background:#d4edda;color:#155724}.badge-cinza{background:#e2e8f0;color:#64748b}
+.badge-azul{background:#dbeafe;color:#1e40af}.badge-ouro{background:#fff3cd;color:#856404}
+
+/* ── LOGIN ── */
+#tela-login{display:none;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0d1b2a,#1b4332)}
+.login-box{background:#fff;border-radius:16px;padding:40px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-logo{text-align:center;margin-bottom:28px}.login-logo img{height:55px;object-fit:contain}
+.login-logo h2{font-family:'Poppins',sans-serif;font-size:17px;color:#15a563;margin-top:10px}
+.login-logo p{color:#888;font-size:12px}
+.login-box label{font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:5px}
+.login-box input{width:100%;padding:11px 14px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;margin-bottom:14px;transition:border .2s;font-family:'Inter',sans-serif}
+.login-box input:focus{border-color:#15a563;outline:none}
+.login-erro{color:#e8112d;font-size:12px;margin-bottom:10px;text-align:center;min-height:18px}
+
+/* ── APP ── */
+#tela-app{display:none;flex-direction:column;min-height:100vh}
+.topbar{background:#15a563;color:#fff;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.15);flex-shrink:0}
+.topbar-logo{display:flex;align-items:center;gap:10px}
+.topbar-logo img{height:34px;object-fit:contain}
+.topbar-logo span{font-family:'Poppins',sans-serif;font-size:16px;font-weight:700}
+.topbar-nav{display:flex;gap:4px}
+.nav-btn{padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:rgba(255,255,255,.85);transition:all .2s;background:transparent;border:none;font-family:'Inter',sans-serif}
+.nav-btn:hover,.nav-btn.ativo{background:rgba(255,255,255,.2);color:#fff}
+.topbar-user{display:flex;align-items:center;gap:12px;font-size:13px;opacity:.9}
+.topbar-user button{background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:'Inter',sans-serif}
+.main{flex:1;padding:24px;max-width:1200px;width:100%;margin:0 auto}
+.page{display:none}.page.ativo{display:block}
+.page-title{font-family:'Poppins',sans-serif;font-size:22px;font-weight:800;color:#1a1a2e}
+.page-sub{color:#64748b;font-size:14px;margin-top:4px}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:12px;flex-wrap:wrap}
+
+/* ── CARDS ── */
+.camp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.camp-card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);cursor:pointer;transition:all .2s;border:2px solid transparent}
+.camp-card:hover{border-color:#15a563;transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.1)}
+.camp-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.camp-card-nome{font-family:'Poppins',sans-serif;font-size:15px;font-weight:700;color:#1a1a2e;line-height:1.3}
+.camp-card-stats{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
+.camp-card-stats span{font-size:12px;color:#64748b}
+.camp-card-actions{display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid #f1f5f9}
+
+/* ── FORM SEÇÕES ── */
+.form-section{background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:20px}
+.form-section h3{font-family:'Poppins',sans-serif;font-size:16px;font-weight:700;margin-bottom:16px;color:#1a1a2e}
+.field{margin-bottom:14px}
+.field label{font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+.field input,.field select{width:100%;padding:10px 14px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:border .2s}
+.field input:focus,.field select:focus{border-color:#15a563}
+.input-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.input-row .field{flex:1;min-width:120px;margin-bottom:0}
+
+/* ── TABELAS ADMIN ── */
+.prod-table{width:100%;border-collapse:collapse;font-size:13px}
+.prod-table th{background:#f8fafc;padding:10px 12px;text-align:left;font-weight:600;border-bottom:2px solid #e2e8f0;color:#475569}
+.prod-table td{padding:9px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+.prod-table tr:hover td{background:#fafbfc}
+.ped-table{width:100%;border-collapse:collapse;font-size:13px}
+.ped-table th{background:#f8fafc;padding:10px 12px;text-align:left;font-weight:600;border-bottom:2px solid #e2e8f0;color:#475569;white-space:nowrap}
+.ped-table td{padding:9px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+.ped-table tr:hover td{background:#fafbfc}
+.consol-table{width:100%;border-collapse:collapse;font-size:13px}
+.consol-table th{background:#1b4332;color:#fff;padding:10px 12px;text-align:left;font-weight:600;white-space:nowrap}
+.consol-table th.num{text-align:right}.consol-table td{padding:9px 12px;border-bottom:1px solid #f1f5f9}
+.consol-table td.num{text-align:right;font-weight:700;color:#15a563;font-size:14px}
+.consol-table tr:hover td{background:#f0faf5}
+.bonif-table th{background:#7B5EA7 !important}
+.mono{font-family:'Courier New',monospace;font-size:12px}
+
+/* ── BONIFICAÇÃO ADMIN (tag no produto) ── */
+.bonif-tag{display:inline-flex;align-items:center;gap:5px;background:#fff3cd;color:#856404;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;margin-top:4px}
+
+/* ── BONIFICAÇÃO EXPAND ── */
+/* Imagem produto */
+.prod-img-thumb{width:48px;height:48px;object-fit:contain;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc}
+.prod-img-form{width:80px;height:80px;object-fit:contain;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc}
+.prod-img-upload{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.img-preview{width:64px;height:64px;object-fit:contain;border-radius:8px;border:2px solid #e2e8f0;background:#f8fafc;display:none}
+.img-label{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#f1f5f9;border:1.5px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:#475569;transition:all .2s}
+.img-label:hover{border-color:#15a563;color:#15a563;background:#f0faf5}
+.img-status{font-size:11px;color:#64748b}
+/* Imagem no formulário público */
+.form-prod-img{width:90px;height:90px;object-fit:contain;border-radius:10px;border:1px solid #e8f5e9;background:#f8fdf8;flex-shrink:0}
+.form-prod-cell{display:flex;align-items:center;gap:12px}
+.bonif-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#15a563;margin-top:10px;user-select:none}
+.bonif-toggle input[type=checkbox]{width:16px;height:16px;accent-color:#15a563;cursor:pointer}
+.bonif-fields{background:#fffdf0;border:1.5px dashed #f0c040;border-radius:10px;padding:16px;margin-top:10px;display:none}
+.bonif-fields.show{display:block}
+.bonif-fields-title{font-size:12px;font-weight:700;color:#856404;margin-bottom:12px;text-transform:uppercase;letter-spacing:.4px}
+
+/* ── DETALHE ── */
+.detalhe-header{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.detalhe-nome{font-family:'Poppins',sans-serif;font-size:20px;font-weight:800;color:#1a1a2e}
+.detalhe-meta{display:flex;gap:16px;margin-top:10px;flex-wrap:wrap}
+.detalhe-meta span{font-size:13px;color:#64748b}
+.link-box{background:#f0faf5;border:2px dashed #15a563;border-radius:8px;padding:14px 18px;font-size:13px;font-family:monospace;word-break:break-all;color:#1b4332;cursor:pointer;margin:12px 0}
+.link-box:hover{background:#d4edda}
+.section-card{background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:16px}
+.section-card h3{font-family:'Poppins',sans-serif;font-size:15px;font-weight:700;margin-bottom:16px;color:#1a1a2e;display:flex;align-items:center;gap:8px}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:#fff;border-radius:10px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.stat-num{font-size:2rem;font-weight:800;color:#15a563;font-family:'Poppins',sans-serif}
+.stat-label{font-size:11px;color:#888;margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+
+/* ── EMPTY / LOADING ── */
+.empty{text-align:center;padding:48px 20px;color:#aaa;background:#fff;border-radius:12px}
+.empty-icon{font-size:3rem;margin-bottom:10px}
+.loading-box{text-align:center;padding:40px;color:#64748b}
+.spin{width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#15a563;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:24px;right:24px;background:#1a1a2e;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;transition:opacity .3s;z-index:9999;max-width:340px}
+#toast.show{opacity:1}#toast.ok{background:#15a563}#toast.err{background:#e8112d}
+
+/* ════════════════════════════════════════════════
+   TELA FORMULÁRIO PÚBLICO
+════════════════════════════════════════════════ */
+#tela-form{display:none;flex-direction:column;min-height:100vh;background:#f0f4f0}
+.form-header{background:linear-gradient(135deg,#1B5E20,#2E7D32 60%,#388E3C);color:#fff;padding:28px 20px;text-align:center;box-shadow:0 3px 12px rgba(0,0,0,.25)}
+.form-header .logo-img{height:60px;object-fit:contain;margin-bottom:12px;background:#fff;border-radius:8px;padding:4px 10px}
+.form-header h1{font-family:'Poppins',sans-serif;font-size:1.4rem;font-weight:800;margin-bottom:4px}
+.form-header p{font-size:.88rem;opacity:.88}
+.form-container{max-width:800px;margin:28px auto;padding:0 16px 60px;width:100%}
+.form-card{background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.09);margin-bottom:20px}
+.form-card h2{font-family:'Poppins',sans-serif;font-size:.98rem;font-weight:700;color:#1B5E20;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid #e8f5e9}
+.form-field{margin-bottom:16px}
+.form-field label{display:block;font-size:.78rem;font-weight:700;color:#444;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+.form-field input{width:100%;padding:12px 14px;border:2px solid #e0e0e0;border-radius:8px;font-size:.95rem;outline:none;transition:border-color .2s;font-family:'Inter',sans-serif}
+.form-field input:focus{border-color:#15a563}
+
+/* Tabela de itens no formulário */
+.itens-table{width:100%;border-collapse:collapse;font-size:.875rem}
+.itens-table thead th{background:#1B5E20;color:#fff;padding:11px 14px;text-align:left;font-weight:700}
+.itens-table thead th.num{text-align:center}
+.itens-table tbody tr{border-bottom:1px solid #f0f0f0}
+.itens-table tbody tr:hover{background:#f8fdf8}
+.itens-table tbody td{padding:11px 14px;vertical-align:middle}
+
+/* Linha de bonificação no formulário */
+.bonif-row td{background:#fffdf0 !important;padding:6px 14px !important;border-bottom:2px solid #f0c040 !important}
+.bonif-calc{font-size:12px;color:#856404;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.bonif-calc .resultado{background:#fff3cd;border-radius:6px;padding:3px 10px;font-size:13px;font-weight:800;color:#6d4c00}
+.bonif-calc .zero{color:#aaa;font-weight:400}
+
+/* Qty controls */
+.qty-wrap{display:flex;align-items:center;justify-content:center;gap:8px}
+.qty-btn{width:30px;height:30px;border:none;border-radius:7px;background:#e8f5e9;color:#1B5E20;font-size:1.2rem;font-weight:700;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.qty-btn:hover{background:#c8e6c9}
+.qty-input{width:68px;padding:6px;border:2px solid #e0e0e0;border-radius:6px;text-align:center;font-size:1rem;font-weight:700;outline:none;font-family:'Inter',sans-serif}
+.qty-input:focus{border-color:#15a563}
+.qty-input.has-value{border-color:#15a563;background:#f0faf5}
+
+.btn-submit{width:100%;padding:16px;background:#15a563;color:#fff;border:none;border-radius:10px;font-size:1.1rem;font-weight:800;cursor:pointer;transition:background .2s;font-family:'Inter',sans-serif}
+.btn-submit:hover{background:#0f8a52}.btn-submit:disabled{background:#aaa;cursor:not-allowed}
+.form-alert{padding:13px 16px;border-radius:8px;font-size:.875rem;margin-bottom:16px;display:none;font-weight:500}
+.form-alert-err{background:#ffebee;color:#c62828;border-left:4px solid #c62828}
+.success-screen{display:none;text-align:center;padding:60px 20px}
+.success-screen .icon{font-size:5rem;margin-bottom:20px}
+.success-screen h2{color:#1B5E20;font-size:1.8rem;margin-bottom:10px;font-family:'Poppins',sans-serif}
+.success-screen p{color:#666;line-height:1.7}
+.success-screen .resumo-bonif{background:#fff3cd;border-radius:10px;padding:16px;margin-top:20px;text-align:left;font-size:13px;color:#6d4c00}
+.success-screen .resumo-bonif h4{font-size:14px;font-weight:700;margin-bottom:8px}
+
+@media(max-width:768px){.topbar-nav{display:none}.main{padding:16px}.camp-grid{grid-template-columns:1fr}.input-row{flex-direction:column}.stats-row{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.form-card{padding:16px}.itens-table thead th:nth-child(2){display:none}.itens-table tbody td:nth-child(2){display:none}}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     FORMULÁRIO PÚBLICO (associados)
+════════════════════════════════════════════════ -->
+<div id="tela-form">
+  <div class="form-header">
+    <img class="logo-img" src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
+    <h1 id="form-nome-campanha">Compra Coletiva Coopefarma</h1>
+    <p>Preencha os dados da farmácia e as quantidades desejadas</p>
+  </div>
+  <div class="form-container">
+    <div id="form-main">
+      <div class="form-alert form-alert-err" id="form-alerta"></div>
+      <div class="form-card">
+        <h2>📋 Dados da Farmácia</h2>
+        <div class="form-field">
+          <label>Razão Social *</label>
+          <input type="text" id="f-razao" placeholder="Nome completo da empresa" autocomplete="organization"/>
+        </div>
+        <div class="form-field">
+          <label>CNPJ *</label>
+          <input type="text" id="f-cnpj" placeholder="00.000.000/0000-00" maxlength="18" oninput="fmtCNPJ(this)" onblur="verificarCnpjDuplicado()"/>
+        </div>
+      </div>
+
+      <div class="form-card" id="form-card-itens">
+        <h2>📦 Produtos — informe as quantidades desejadas</h2>
+        <div class="loading-box"><div class="spin"></div>Carregando produtos...</div>
+      </div>
+
+      <button class="btn-submit" id="btn-submit-form" onclick="submeterPedido()" disabled>✅ Confirmar Pedido</button>
+    </div>
+
+    <div class="success-screen" id="form-sucesso">
+      <div class="icon">🎉</div>
+      <h2>Pedido confirmado!</h2>
+      <p>Seu pedido foi enviado para a Coopefarma com sucesso.<br>Obrigado pela participação na compra coletiva!</p>
+      <div id="sucesso-resumo-bonif" class="resumo-bonif" style="display:none">
+        <h4>🎁 Bonificações que você vai receber:</h4>
+        <div id="sucesso-bonif-lista"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     TELA DE LOGIN
+════════════════════════════════════════════════ -->
+<div id="tela-login">
+  <div class="login-box">
+    <div class="login-logo">
+      <img src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
+      <h2>CompraCoop</h2>
+      <p>Sistema de Compra Coletiva</p>
+    </div>
+    <label>E-mail</label>
+    <input type="email" id="l-email" placeholder="seu@email.com" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('l-senha').focus()"/>
+    <label>Senha</label>
+    <input type="password" id="l-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"/>
+    <div class="login-erro" id="l-erro"></div>
+    <button class="btn btn-primary" style="width:100%;padding:12px" onclick="fazerLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAINEL ADMIN
+════════════════════════════════════════════════ -->
+<div id="tela-app">
+  <div class="topbar">
+    <div class="topbar-logo">
+      <img src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
+      <span>CompraCoop</span>
+    </div>
+    <div class="topbar-nav">
+      <button class="nav-btn" onclick="irPara('campanhas')">🛒 Campanhas</button>
+      <button class="nav-btn" onclick="irPara('nova')">➕ Nova Campanha</button>
+    </div>
+    <div class="topbar-user">
+      <span id="u-email"></span>
+      <button onclick="fazerLogout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- CAMPANHAS -->
+    <div class="page" id="pg-campanhas">
+      <div class="page-header">
+        <div><div class="page-title">🛒 Compras Coletivas</div><div class="page-sub">Gerencie suas campanhas</div></div>
+        <button class="btn btn-primary" onclick="irPara('nova')">➕ Nova Campanha</button>
+      </div>
+      <div id="camp-lista"><div class="loading-box"><div class="spin"></div>Carregando...</div></div>
+    </div>
+
+    <!-- NOVA CAMPANHA -->
+    <div class="page" id="pg-nova">
+      <div class="page-header">
+        <div><div class="page-title">➕ Nova Campanha</div><div class="page-sub">Configure os produtos e gere o link para os associados</div></div>
+        <button class="btn btn-outline" onclick="irPara('campanhas')">← Voltar</button>
+      </div>
+
+      <div class="form-section">
+        <h3>📝 Identificação</h3>
+        <div class="field">
+          <label>Nome da compra coletiva</label>
+          <input type="text" id="n-nome" placeholder="Ex: Compra Coletiva Neo Química — Julho 2026"/>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>📦 Adicionar Produto</h3>
+        <div class="input-row">
+          <div class="field" style="flex:3"><label>Descrição</label><input type="text" id="n-desc" placeholder="Ex: Resfregripe 20 Comprimidos" onkeydown="if(event.key==='Enter')document.getElementById('n-ean').focus()"/></div>
+          <div class="field" style="flex:1.5"><label>Código EAN</label><input type="text" id="n-ean" placeholder="7891234000001"/></div>
+          <div class="field" style="flex:1"><label>Valor Unit. (R$)</label><input type="number" id="n-valor" placeholder="3.99" min="0" step="0.01"/></div>
+          <div class="field" style="flex:1"><label>Qtd. Mínima</label><input type="number" id="n-qtdmin" placeholder="0" min="0"/></div>
+          <div class="field" style="flex:1"><label>Limite Total (un.)</label><input type="number" id="n-limite" placeholder="Sem limite" min="1"/></div>
+        </div>
+        <div class="field" style="margin-top:4px">
+          <label>Imagem do produto (opcional)</label>
+          <div class="prod-img-upload">
+            <label class="img-label" for="n-imagem">📷 Escolher imagem</label>
+            <input type="file" id="n-imagem" accept="image/*" style="display:none" onchange="previewImagem(this)"/>
+            <img id="n-img-preview" class="img-preview" alt="preview"/>
+            <span class="img-status" id="n-img-status">Nenhuma imagem selecionada</span>
+          </div>
+        </div>
+
+        <!-- CONDIÇÃO ESPECIAL -->
+        <label class="bonif-toggle">
+          <input type="checkbox" id="n-tem-bonif" onchange="toggleBonif(this)"/>
+          🎁 Este produto tem condição especial de bonificação
+        </label>
+        <div class="bonif-fields" id="n-bonif-fields">
+          <div class="bonif-fields-title">🎁 Configurar Bonificação</div>
+          <div class="input-row">
+            <div class="field" style="flex:3"><label>Produto Bonificado</label><input type="text" id="n-bonif-desc" placeholder="Ex: Simeticona gotas 15ml"/></div>
+            <div class="field" style="flex:1.5"><label>EAN do Bonificado</label><input type="text" id="n-bonif-ean" placeholder="7891234000002"/></div>
+          </div>
+          <div class="input-row">
+            <div class="field"><label>Valor Unit. do Bonificado (R$)</label><input type="number" id="n-bonif-prod-valor" placeholder="Ex: 1.99" min="0" step="0.01"/></div>
+            <div class="field"><label>Bonificação por unidade comprada (R$)</label><input type="number" id="n-bonif-valor-unit" placeholder="Ex: 0.50" min="0" step="0.01"/></div>
+          </div>
+          <div id="n-bonif-preview" style="font-size:12px;color:#856404;margin-top:8px;min-height:18px"></div>
+        </div>
+
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" onclick="addProdNova()">＋ Adicionar produto à lista</button>
+        </div>
+
+        <div style="margin-top:20px;overflow-x:auto;border-radius:8px;border:1px solid #e2e8f0">
+          <table class="prod-table">
+            <thead><tr><th>#</th><th>Img</th><th>Descrição</th><th>EAN</th><th>Valor</th><th>Qtd Mín.</th><th>Condição Especial</th><th></th></tr></thead>
+            <tbody id="n-tbody"></tbody>
+          </table>
+        </div>
+        <div id="n-empty" style="text-align:center;padding:24px;color:#aaa;font-size:13px">Nenhum produto adicionado ainda.</div>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:flex-end">
+        <button class="btn btn-outline" onclick="irPara('campanhas')">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarCampanha()" style="padding:11px 28px">💾 Criar Campanha</button>
+      </div>
+    </div>
+
+    <!-- DETALHE -->
+    <div class="page" id="pg-detalhe">
+      <div class="page-header">
+        <button class="btn btn-outline btn-sm" onclick="irPara('campanhas')">← Campanhas</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-danger btn-sm" id="btn-encerrar" onclick="alterarStatusCampanha()">⏹ Encerrar</button>
+          <button class="btn btn-danger btn-sm" onclick="excluirCampanha()">🗑 Excluir</button>
+        </div>
+      </div>
+
+      <div class="detalhe-header">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div>
+            <div class="detalhe-nome" id="d-nome">—</div>
+            <div class="detalhe-meta">
+              <span id="d-badge"></span>
+              <span>📦 <span id="d-nprod">0</span> produtos</span>
+              <span>📋 <span id="d-nped">0</span> pedido(s)</span>
+              <span>📅 <span id="d-data">—</span></span>
+            </div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="carregarDetalhe(campanhaId)">🔄 Atualizar</button>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h3>🔗 Link para os associados</h3>
+        <p style="font-size:13px;color:#64748b;margin-bottom:8px">Copie e envie pelo WhatsApp ou e-mail:</p>
+        <div class="link-box" id="d-link" onclick="copiarLink()">—</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="copiarLink()">📋 Copiar link</button>
+          <button class="btn btn-outline btn-sm" style="color:#25d366" onclick="abrirWpp()">💬 Enviar WhatsApp</button>
+        </div>
+      </div>
+
+      <div class="stats-row" id="d-stats"></div>
+
+      <div class="section-card">
+        <h3>📦 Produtos desta campanha</h3>
+        <div style="overflow-x:auto;border-radius:8px;border:1px solid #e2e8f0">
+          <table class="prod-table">
+            <thead><tr><th>#</th><th>Img</th><th>Descrição</th><th>EAN</th><th>Valor</th><th>Qtd Mín.</th><th>Limite</th><th>Condição Especial</th></tr></thead>
+            <tbody id="d-tbody-prod"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h3>📋 Pedidos recebidos</h3>
+        <div id="d-pedidos-wrap"><div class="loading-box"><div class="spin"></div></div></div>
+      </div>
+
+      <div class="section-card" id="d-consol-section" style="display:none">
+        <h3>📊 Consolidado — Total por produto</h3>
+        <div style="overflow-x:auto;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:16px">
+          <table class="consol-table" id="d-consol-table">
+            <thead><tr><th>Descrição do Produto</th><th>Código EAN</th><th class="num">Qtd. Total</th><th class="num">Farmácias</th></tr></thead>
+            <tbody id="d-tbody-consol"></tbody>
+          </table>
+        </div>
+        <div id="d-bonif-consol" style="display:none;margin-bottom:16px">
+          <h3 style="font-family:Poppins,sans-serif;font-size:14px;font-weight:700;color:#856404;margin-bottom:10px;display:flex;align-items:center;gap:6px">🎁 Bonificações geradas</h3>
+          <div style="overflow-x:auto;border-radius:8px;border:1px solid #f0c040">
+            <table class="consol-table bonif-table">
+              <thead><tr><th>Produto Bonificado</th><th>EAN</th><th class="num">Total a Receber</th><th class="num">Farmácias</th></tr></thead>
+              <tbody id="d-tbody-bonif"></tbody>
+            </table>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="exportarConsolidado()">📥 Excel — Fornecedor</button>
+          <button class="btn btn-blue" onclick="exportarDetalhado()">📥 Excel — Detalhado (por farmácia)</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Modal CNPJ duplicado -->
+<div id="modal-cnpj" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:28px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="font-size:2rem;text-align:center;margin-bottom:12px">⚠️</div>
+    <h3 style="font-family:Poppins,sans-serif;font-size:16px;font-weight:700;text-align:center;margin-bottom:10px">CNPJ já registrado</h3>
+    <p id="modal-cnpj-txt" style="font-size:13px;color:#555;text-align:center;line-height:1.6;margin-bottom:20px"></p>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btn btn-outline" onclick="fecharModalCnpj(false)">Cancelar</button>
+      <button class="btn btn-primary" onclick="fecharModalCnpj(true)">Sim, continuar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════ -->
+<script>
+const SB_URL='https://uofcbqqbubvvltnzvhsx.supabase.co';
+const SB_KEY='sb_publishable_SQ0x7RDU9B0u5lqvn2pr1Q_4NwoJMY9';
+const {createClient}=supabase;
+const sb=createClient(SB_URL,SB_KEY);
+const BASE=location.origin+location.pathname;
+
+let campanhaId=null;
+let _campanhaCache={};
+let _produtosCache=[];
+let _pedidosCache=[];
+let _novaProdutos=[];
+
+// ─────────────────────────────
+// INIT
+// ─────────────────────────────
+async function init(){
+  const params=new URLSearchParams(location.search);
+  const c=params.get('c');
+  if(c){document.getElementById('tela-form').style.display='flex';await initForm(c);return;}
+  const{data:{session}}=await sb.auth.getSession();
+  if(session){
+    document.getElementById('u-email').textContent=session.user.email;
+    document.getElementById('tela-app').style.display='flex';
+    irPara('campanhas');
+  }else{document.getElementById('tela-login').style.display='flex';}
+}
+
+function irPara(pag){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('ativo'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('ativo'));
+  const mapa={campanhas:'pg-campanhas',nova:'pg-nova',detalhe:'pg-detalhe'};
+  const pg=document.getElementById(mapa[pag]);if(pg)pg.classList.add('ativo');
+  if(pag==='campanhas')carregarCampanhas();
+  if(pag==='nova')initNova();
+  if(pag==='detalhe'&&campanhaId)carregarDetalhe(campanhaId);
+}
+
+// ─────────────────────────────
+// AUTH
+// ─────────────────────────────
+async function fazerLogin(){
+  const email=document.getElementById('l-email').value.trim();
+  const senha=document.getElementById('l-senha').value;
+  document.getElementById('l-erro').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:senha});
+  if(error){document.getElementById('l-erro').textContent='E-mail ou senha incorretos.';return;}
+  document.getElementById('u-email').textContent=data.user.email;
+  document.getElementById('tela-login').style.display='none';
+  document.getElementById('tela-app').style.display='flex';
+  irPara('campanhas');
+}
+async function fazerLogout(){await sb.auth.signOut();location.reload();}
+
+// ─────────────────────────────
+// CAMPANHAS
+// ─────────────────────────────
+async function carregarCampanhas(){
+  const el=document.getElementById('camp-lista');
+  el.innerHTML='<div class="loading-box"><div class="spin"></div>Carregando...</div>';
+  const{data}=await sb.from('cc_campanhas').select('*').order('created_at',{ascending:false});
+  if(!data?.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>Nenhuma campanha ainda. Crie a primeira!</p></div>';return;}
+  const ids=data.map(c=>c.id);
+  const[{data:prods},{data:peds}]=await Promise.all([
+    sb.from('cc_produtos').select('campanha_id').in('campanha_id',ids),
+    sb.from('cc_pedidos').select('campanha_id').in('campanha_id',ids)
+  ]);
+  el.innerHTML='<div class="camp-grid">'+data.map(c=>{
+    const np=(prods||[]).filter(p=>p.campanha_id===c.id).length;
+    const nq=(peds||[]).filter(p=>p.campanha_id===c.id).length;
+    const bCls=c.status==='ativa'?'badge-verde':'badge-cinza';
+    const bTxt=c.status==='ativa'?'✅ Ativa':'⏹ Encerrada';
+    const dt=new Date(c.created_at).toLocaleDateString('pt-BR');
+    return `<div class="camp-card" onclick="abrirDetalhe('${c.id}')">
+      <div class="camp-card-header"><div class="camp-card-nome">${esc(c.nome)}</div><span class="badge ${bCls}">${bTxt}</span></div>
+      <div class="camp-card-stats"><span>📦 ${np} produto(s)</span><span>📋 ${nq} pedido(s)</span><span>📅 ${dt}</span></div>
+      <div class="camp-card-actions">
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')">Ver detalhes</button>
+        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();copiarLinkDireto('${c.token}')">📋 Link</button>
+      </div></div>`;
+  }).join('')+'</div>';
+}
+
+function abrirDetalhe(id){campanhaId=id;irPara('detalhe');}
+
+async function carregarDetalhe(id){
+  campanhaId=id;
+  const[{data:camp},{data:prods},{data:peds}]=await Promise.all([
+    sb.from('cc_campanhas').select('*').eq('id',id).single(),
+    sb.from('cc_produtos').select('*').eq('campanha_id',id).order('ordem'),
+    sb.from('cc_pedidos').select('*').eq('campanha_id',id).order('created_at',{ascending:false})
+  ]);
+  if(!camp)return;
+  _campanhaCache=camp;_produtosCache=prods||[];_pedidosCache=peds||[];
+
+  document.getElementById('d-nome').textContent=camp.nome;
+  document.getElementById('d-nprod').textContent=_produtosCache.length;
+  document.getElementById('d-nped').textContent=_pedidosCache.length;
+  document.getElementById('d-data').textContent=new Date(camp.created_at).toLocaleDateString('pt-BR');
+  const bEl=document.getElementById('d-badge');
+  bEl.className='badge '+(camp.status==='ativa'?'badge-verde':'badge-cinza');
+  bEl.textContent=camp.status==='ativa'?'✅ Ativa':'⏹ Encerrada';
+  const btnEnc=document.getElementById('btn-encerrar');
+  btnEnc.textContent=camp.status==='ativa'?'⏹ Encerrar':'▶ Reativar';
+  btnEnc.className=camp.status==='ativa'?'btn btn-danger btn-sm':'btn btn-outline btn-sm';
+
+  document.getElementById('d-link').textContent=BASE+'?c='+camp.token;
+  document.getElementById('d-stats').innerHTML=
+    `<div class="stat-card"><div class="stat-num">${_produtosCache.length}</div><div class="stat-label">Produtos</div></div>`+
+    `<div class="stat-card"><div class="stat-num">${_pedidosCache.length}</div><div class="stat-label">Pedidos</div></div>`;
+
+  // Produtos (com info de bonificação)
+  document.getElementById('d-tbody-prod').innerHTML=_produtosCache.length
+    ?_produtosCache.map((p,i)=>`<tr>
+        <td style="color:#aaa">${i+1}</td>
+        <td>${p.imagem_url?`<img src="${p.imagem_url}" class="prod-img-thumb" alt="img"/>`:'<span style="color:#ddd;font-size:18px">📷</span>'}</td>
+        <td>${esc(p.descricao)}</td>
+        <td class="mono">${esc(p.ean)}</td>
+        <td>${p.valor_unit!=null?'R$ '+fmtN(p.valor_unit):'—'}</td>
+        <td>${p.qtd_min||'—'}</td>
+        <td>${p.limite_qtd?`<span style="font-weight:700;color:#1565C0">${p.limite_qtd} un.</span>`:'—'}</td>
+        <td>${p.bonif_descricao?`<span class="bonif-tag">🎁 R$${fmtN(p.bonif_valor_unit)}/un → ${esc(p.bonif_descricao)} (R$${fmtN(p.bonif_prod_valor)})</span>`:'—'}</td>
+      </tr>`).join('')
+    :'<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px">Nenhum produto</td></tr>';
+
+  await renderPedidos();
+  await renderConsolidado();
+}
+
+async function renderPedidos(){
+  const wrap=document.getElementById('d-pedidos-wrap');
+  if(!_pedidosCache.length){
+    wrap.innerHTML='<div style="text-align:center;padding:28px;color:#aaa;font-size:13px">📭 Nenhum pedido recebido ainda. Compartilhe o link com os associados!</div>';
+    return;
+  }
+  const pedIds=_pedidosCache.map(p=>p.id);
+  const{data:itens}=await sb.from('cc_pedido_itens').select('*').in('pedido_id',pedIds);
+  wrap.innerHTML=`<div style="overflow-x:auto;border-radius:8px;border:1px solid #e2e8f0">
+    <table class="ped-table"><thead><tr><th>Data/Hora</th><th>Razão Social</th><th>CNPJ</th><th>Itens</th><th>Unidades</th><th>Bonificações</th><th></th></tr></thead>
+    <tbody>`+_pedidosCache.map(p=>{
+      const pIt=(itens||[]).filter(i=>i.pedido_id===p.id);
+      const totalUnid=pIt.reduce((s,i)=>s+(i.quantidade||0),0);
+      const bonifs=pIt.filter(i=>i.bonif_quantidade>0);
+      const dt=new Date(p.created_at).toLocaleString('pt-BR');
+      const bonifStr=bonifs.length
+        ?bonifs.map(i=>`<span class="bonif-tag">🎁 ${Math.floor(i.bonif_quantidade)} ${esc(i.bonif_descricao)}</span>`).join(' ')
+        :'—';
+      return `<tr>
+        <td style="white-space:nowrap;font-size:12px">${dt}</td>
+        <td>${esc(p.razao_social)}</td><td class="mono">${esc(p.cnpj)}</td>
+        <td style="text-align:center">${pIt.length}</td>
+        <td style="text-align:center;font-weight:700;color:#15a563">${totalUnid}</td>
+        <td>${bonifStr}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="excluirPedido('${p.id}')">✕</button></td>
+      </tr>`;
+    }).join('')+'</tbody></table></div>';
+}
+
+async function renderConsolidado(){
+  if(!_pedidosCache.length){document.getElementById('d-consol-section').style.display='none';return;}
+  const pedIds=_pedidosCache.map(p=>p.id);
+  const{data:itens}=await sb.from('cc_pedido_itens').select('*').in('pedido_id',pedIds);
+  if(!itens?.length){document.getElementById('d-consol-section').style.display='none';return;}
+
+  // Agrupa produtos principais
+  const mapProd={};
+  itens.forEach(it=>{
+    if(!it.quantidade||it.quantidade<=0)return;
+    const key=it.produto_id;
+    if(!mapProd[key])mapProd[key]={descricao:it.descricao,ean:it.ean,total:0,farms:new Set()};
+    mapProd[key].total+=it.quantidade;
+    const ped=_pedidosCache.find(p=>p.id===it.pedido_id);
+    if(ped)mapProd[key].farms.add(ped.cnpj);
+  });
+  const dadosProd=Object.values(mapProd).sort((a,b)=>a.descricao.localeCompare(b.descricao));
+  document.getElementById('d-tbody-consol').innerHTML=dadosProd.map(d=>
+    `<tr><td>${esc(d.descricao)}</td><td class="mono">${esc(d.ean)}</td><td class="num">${d.total}</td><td class="num">${d.farms.size}</td></tr>`
+  ).join('');
+
+  // Agrupa bonificações
+  const mapBonif={};
+  itens.forEach(it=>{
+    if(!it.bonif_quantidade||it.bonif_quantidade<=0||!it.bonif_descricao)return;
+    const key=it.bonif_ean||it.bonif_descricao;
+    if(!mapBonif[key])mapBonif[key]={descricao:it.bonif_descricao,ean:it.bonif_ean||'—',total:0,farms:new Set()};
+    mapBonif[key].total+=it.bonif_quantidade;
+    const ped=_pedidosCache.find(p=>p.id===it.pedido_id);
+    if(ped)mapBonif[key].farms.add(ped.cnpj);
+  });
+  const dadosBonif=Object.values(mapBonif).sort((a,b)=>a.descricao.localeCompare(b.descricao));
+  const divBonif=document.getElementById('d-bonif-consol');
+  if(dadosBonif.length){
+    document.getElementById('d-tbody-bonif').innerHTML=dadosBonif.map(d=>
+      `<tr><td>${esc(d.descricao)}</td><td class="mono">${esc(d.ean)}</td><td class="num">${Math.floor(d.total)}</td><td class="num">${d.farms.size}</td></tr>`
+    ).join('');
+    divBonif.style.display='block';
+  }else{divBonif.style.display='none';}
+
+  document.getElementById('d-consol-section').style.display='block';
+}
+
+async function excluirPedido(id){
+  if(!confirm('Excluir este pedido?'))return;
+  await sb.from('cc_pedido_itens').delete().eq('pedido_id',id);
+  await sb.from('cc_pedidos').delete().eq('id',id);
+  _pedidosCache=_pedidosCache.filter(p=>p.id!==id);
+  document.getElementById('d-nped').textContent=_pedidosCache.length;
+  await renderPedidos();await renderConsolidado();
+  toast('Pedido excluído.','ok');
+}
+
+async function alterarStatusCampanha(){
+  if(!_campanhaCache.id)return;
+  const novoStatus=_campanhaCache.status==='ativa'?'encerrada':'ativa';
+  if(!confirm(`${novoStatus==='encerrada'?'Encerrar':'Reativar'} esta campanha?`))return;
+  await sb.from('cc_campanhas').update({status:novoStatus}).eq('id',_campanhaCache.id);
+  toast(`Campanha ${novoStatus==='ativa'?'reativada':'encerrada'}.`,'ok');
+  await carregarDetalhe(_campanhaCache.id);
+}
+
+async function excluirCampanha(){
+  if(!confirm(`Excluir "${_campanhaCache.nome}"?\nTodos os pedidos serão apagados. Não pode ser desfeito.`))return;
+  if(_pedidosCache.length)await sb.from('cc_pedido_itens').delete().in('pedido_id',_pedidosCache.map(p=>p.id));
+  await sb.from('cc_pedidos').delete().eq('campanha_id',campanhaId);
+  await sb.from('cc_produtos').delete().eq('campanha_id',campanhaId);
+  await sb.from('cc_campanhas').delete().eq('id',campanhaId);
+  toast('Campanha excluída.','ok');campanhaId=null;irPara('campanhas');
+}
+
+function copiarLink(){
+  navigator.clipboard.writeText(BASE+'?c='+_campanhaCache.token).then(()=>toast('Link copiado!','ok'));
+}
+function copiarLinkDireto(token){
+  navigator.clipboard.writeText(BASE+'?c='+token).then(()=>toast('Link copiado!','ok'));
+}
+function abrirWpp(){
+  const link=BASE+'?c='+_campanhaCache.token;
+  const txt=encodeURIComponent(`🌿 *Coopefarma — ${_campanhaCache.nome}*\n\nClique no link para registrar seu pedido:\n${link}`);
+  window.open('https://wa.me/?text='+txt,'_blank');
+}
+
+// ─────────────────────────────
+// NOVA CAMPANHA
+// ─────────────────────────────
+function initNova(){
+  _novaProdutos=[];
+  ['n-nome','n-desc','n-ean','n-valor','n-qtdmin','n-bonif-desc','n-bonif-ean','n-bonif-prod-valor','n-bonif-valor-unit']
+    .forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('n-tem-bonif').checked=false;
+  document.getElementById('n-bonif-fields').classList.remove('show');
+  document.getElementById('n-bonif-preview').textContent='';
+  limparImagem();
+  renderNovaProdutos();
+}
+
+function previewImagem(input){
+  const file=input.files[0];
+  const prev=document.getElementById('n-img-preview');
+  const status=document.getElementById('n-img-status');
+  if(!file){prev.style.display='none';status.textContent='Nenhuma imagem selecionada';return;}
+  prev.src=URL.createObjectURL(file);
+  prev.style.display='block';
+  status.textContent=file.name+' ('+Math.round(file.size/1024)+' KB)';
+}
+
+function limparImagem(){
+  const inp=document.getElementById('n-imagem');
+  const prev=document.getElementById('n-img-preview');
+  const status=document.getElementById('n-img-status');
+  if(inp)inp.value='';
+  if(prev){prev.src='';prev.style.display='none';}
+  if(status)status.textContent='Nenhuma imagem selecionada';
+}
+
+async function uploadImagem(file){
+  const ext=file.name.split('.').pop();
+  const nome='produto_'+Date.now()+'.'+ext;
+  const{data,error}=await sb.storage.from('cc-imagens').upload('produtos/'+nome,file,{upsert:true,contentType:file.type});
+  if(error){toast('Erro no upload da imagem: '+error.message,'err');return null;}
+  const{data:{publicUrl}}=sb.storage.from('cc-imagens').getPublicUrl('produtos/'+nome);
+  return publicUrl;
+}
+
+function toggleBonif(cb){
+  document.getElementById('n-bonif-fields').classList.toggle('show',cb.checked);
+}
+
+// Preview da bonificação em tempo real (admin)
+['n-bonif-valor-unit','n-bonif-prod-valor','n-bonif-desc'].forEach(id=>{
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.getElementById(id)?.addEventListener('input',atualizarPreviewBonif);
+  });
+});
+function atualizarPreviewBonif(){
+  const valorUnit=parseFloat(document.getElementById('n-bonif-valor-unit').value)||0;
+  const prodValor=parseFloat(document.getElementById('n-bonif-prod-valor').value)||0;
+  const desc=document.getElementById('n-bonif-desc').value.trim();
+  const prev=document.getElementById('n-bonif-preview');
+  if(valorUnit>0&&prodValor>0&&desc){
+    const ex=100; // exemplo: 100 unidades
+    const totalBonif=ex*valorUnit;
+    const qtdBonif=Math.floor(totalBonif/prodValor);
+    prev.innerHTML=`<strong>Exemplo:</strong> comprando ${ex} unidades → R$ ${fmtN(totalBonif)} em bonificação → <strong>${qtdBonif} unidades</strong> de ${esc(desc)}`;
+  }else{prev.textContent='';}
+}
+
+async function addProdNova(){
+  const desc=document.getElementById('n-desc').value.trim();
+  const ean=document.getElementById('n-ean').value.trim();
+  const valor=parseFloat(document.getElementById('n-valor').value)||null;
+  const qtdmin=parseInt(document.getElementById('n-qtdmin').value)||null;
+  const limite=parseInt(document.getElementById('n-limite').value)||null;
+  const temBonif=document.getElementById('n-tem-bonif').checked;
+  if(!desc){toast('Informe a descrição.','err');return;}
+  if(!ean){toast('Informe o código EAN.','err');return;}
+
+  // Upload de imagem se houver
+  const imgInput=document.getElementById('n-imagem');
+  let imagemUrl=null;
+  if(imgInput.files[0]){
+    toast('Enviando imagem...','ok');
+    imagemUrl=await uploadImagem(imgInput.files[0]);
+    if(!imagemUrl)return;
+  }
+
+  const prod={
+    id:Date.now(),descricao:desc,ean,valor_unit:valor,qtd_min:qtdmin,limite_qtd:limite,
+    ordem:_novaProdutos.length,imagem_url:imagemUrl,
+    bonif_descricao:null,bonif_ean:null,bonif_prod_valor:null,bonif_valor_unit:null
+  };
+
+  if(temBonif){
+    const bDesc=document.getElementById('n-bonif-desc').value.trim();
+    const bEan=document.getElementById('n-bonif-ean').value.trim();
+    const bProdValor=parseFloat(document.getElementById('n-bonif-prod-valor').value)||null;
+    const bValorUnit=parseFloat(document.getElementById('n-bonif-valor-unit').value)||null;
+    if(!bDesc||!bValorUnit||!bProdValor){toast('Preencha todos os campos da condição especial.','err');return;}
+    prod.bonif_descricao=bDesc;prod.bonif_ean=bEan;
+    prod.bonif_prod_valor=bProdValor;prod.bonif_valor_unit=bValorUnit;
+  }
+
+  _novaProdutos.push(prod);
+  ['n-desc','n-ean','n-valor','n-qtdmin','n-limite','n-bonif-desc','n-bonif-ean','n-bonif-prod-valor','n-bonif-valor-unit']
+    .forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('n-tem-bonif').checked=false;
+  document.getElementById('n-bonif-fields').classList.remove('show');
+  document.getElementById('n-bonif-preview').textContent='';
+  limparImagem();
+  document.getElementById('n-desc').focus();
+  renderNovaProdutos();
+  toast('Produto adicionado!','ok');
+}
+
+function removerProdNova(id){_novaProdutos=_novaProdutos.filter(p=>p.id!==id);renderNovaProdutos();}
+
+function renderNovaProdutos(){
+  const tbody=document.getElementById('n-tbody');
+  const empty=document.getElementById('n-empty');
+  if(!_novaProdutos.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=_novaProdutos.map((p,i)=>`<tr>
+    <td style="color:#aaa">${i+1}</td>
+    <td>${p.imagem_url?`<img src="${p.imagem_url}" class="prod-img-thumb" alt="img"/>`:'<span style="color:#ddd;font-size:18px">📷</span>'}</td>
+    <td>${esc(p.descricao)}</td>
+    <td class="mono">${esc(p.ean)}</td>
+    <td>${p.valor_unit!=null?'R$ '+fmtN(p.valor_unit):'—'}</td>
+    <td>${p.qtd_min||'—'}</td>
+    <td>${p.bonif_descricao?`<span class="bonif-tag">🎁 R$${fmtN(p.bonif_valor_unit)}/un → ${esc(p.bonif_descricao)} (R$${fmtN(p.bonif_prod_valor)})</span>`:'—'}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="removerProdNova(${p.id})">✕</button></td>
+  </tr>`).join('');
+}
+
+async function salvarCampanha(){
+  const nome=document.getElementById('n-nome').value.trim();
+  if(!nome){toast('Informe o nome da campanha.','err');return;}
+  if(!_novaProdutos.length){toast('Adicione pelo menos um produto.','err');return;}
+  const token=crypto.randomUUID().replace(/-/g,'').substring(0,16);
+  const{data:camp,error:e1}=await sb.from('cc_campanhas').insert({nome,status:'ativa',token}).select().single();
+  if(e1){toast('Erro: '+e1.message,'err');return;}
+  const{error:e2}=await sb.from('cc_produtos').insert(
+    _novaProdutos.map((p,i)=>({
+      campanha_id:camp.id,descricao:p.descricao,ean:p.ean,
+      valor_unit:p.valor_unit,qtd_min:p.qtd_min,limite_qtd:p.limite_qtd||null,ordem:i,imagem_url:p.imagem_url||null,
+      bonif_descricao:p.bonif_descricao,bonif_ean:p.bonif_ean,
+      bonif_prod_valor:p.bonif_prod_valor,bonif_valor_unit:p.bonif_valor_unit
+    }))
+  );
+  if(e2){toast('Erro ao salvar produtos: '+e2.message,'err');return;}
+  toast('Campanha criada!','ok');campanhaId=camp.id;irPara('detalhe');
+}
+
+// ─────────────────────────────
+// FORMULÁRIO PÚBLICO
+// ─────────────────────────────
+let _formCampanha=null;
+let _formProdutos=[];
+
+async function initForm(token){
+  const{data:camp}=await sb.from('cc_campanhas').select('*').eq('token',token).single();
+  if(!camp){
+    document.getElementById('form-card-itens').innerHTML='<div style="text-align:center;padding:32px;color:#c62828">⚠️ Link inválido ou expirado.</div>';
+    document.getElementById('btn-submit-form').style.display='none';return;
+  }
+  if(camp.status!=='ativa'){
+    document.getElementById('form-card-itens').innerHTML='<div style="text-align:center;padding:32px;color:#c62828">⏹ Esta compra coletiva já foi encerrada.</div>';
+    document.getElementById('btn-submit-form').style.display='none';return;
+  }
+  _formCampanha=camp;
+  _cnpjDuplicadoOk=false;
+  document.getElementById('form-nome-campanha').textContent=camp.nome;
+  document.title=camp.nome+' — Coopefarma';
+  const{data:prods}=await sb.from('cc_produtos').select('*').eq('campanha_id',camp.id).order('ordem');
+  _formProdutos=prods||[];
+  renderFormProdutos();
+}
+
+function renderFormProdutos(){
+  const card=document.getElementById('form-card-itens');
+  if(!_formProdutos.length){
+    card.innerHTML='<h2>📦 Produtos</h2><div style="text-align:center;padding:20px;color:#aaa">Nenhum produto disponível.</div>';
+    return;
+  }
+
+  let rows='';
+  _formProdutos.forEach((p,i)=>{
+    const valorStr=p.valor_unit!=null?`<br><small style="color:#999">R$ ${fmtN(p.valor_unit)}/unidade</small>`:'';
+    const qtdMinStr=p.qtd_min?`<small style="color:#aaa;font-size:11px"> · Qtd mín: ${p.qtd_min}</small>`:'';
+    const imgStr=p.imagem_url?`<img src="${p.imagem_url}" class="form-prod-img" alt="${esc(p.descricao)}"/>`:'';
+    // Linha do produto
+    rows+=`<tr>
+      <td><div class="form-prod-cell">${imgStr}<div><strong>${esc(p.descricao)}</strong>${valorStr}${qtdMinStr}</div></div></td>
+      <td class="mono" style="font-size:.8rem;color:#666">${esc(p.ean)}</td>
+      <td>
+        <div class="qty-wrap">
+          <button class="qty-btn" type="button" onclick="setQty(${i},-1)">−</button>
+          <input type="number" class="qty-input" id="q${i}" value="0" min="0" oninput="onQtyChange(${i})"/>
+          <button class="qty-btn" type="button" onclick="setQty(${i},1)">+</button>
+        </div>
+      </td>
+    </tr>`;
+    // Linha de bonificação (sempre visível quando produto tem bonif)
+    if(p.bonif_descricao){
+      rows+=`<tr class="bonif-row" id="bonif-row-${i}">
+        <td colspan="3">
+          <div class="bonif-calc" id="bonif-calc-${i}">
+            <span>🎁</span>
+            <span class="zero">A cada unidade de <strong>${esc(p.descricao)}</strong> comprada, você gera <strong>R$ ${fmtN(p.bonif_valor_unit)}</strong> em bonificação para receber <strong>${esc(p.bonif_descricao)}</strong> (R$ ${fmtN(p.bonif_prod_valor)}/un). Informe a quantidade acima para ver o cálculo.</span>
+          </div>
+        </td>
+      </tr>`;
+    }
+  });
+
+  card.innerHTML=`<h2>📦 Produtos — informe as quantidades desejadas</h2>
+    <div style="overflow-x:auto">
+    <table class="itens-table">
+      <thead><tr><th>Produto</th><th>EAN</th><th class="num">Quantidade</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  document.getElementById('btn-submit-form').disabled=false;
+}
+
+function setQty(i,d){
+  const inp=document.getElementById('q'+i);
+  let v=Math.max(0,(parseInt(inp.value)||0)+d);
+  inp.value=v;
+  inp.className='qty-input'+(v>0?' has-value':'');
+  onQtyChange(i);
+}
+
+function onQtyChange(i){
+  const inp=document.getElementById('q'+i);
+  const v=parseInt(inp.value)||0;
+  inp.className='qty-input'+(v>0?' has-value':'');
+  const p=_formProdutos[i];
+  if(!p?.bonif_descricao)return;
+
+  const row=document.getElementById('bonif-row-'+i);
+  const calc=document.getElementById('bonif-calc-'+i);
+  if(!row||!calc)return;
+
+  if(v<=0){
+    calc.innerHTML=`<span>🎁</span><span class="zero">A cada unidade de <strong>${esc(p.descricao)}</strong> comprada, você gera <strong>R$ ${fmtN(p.bonif_valor_unit)}</strong> em bonificação para receber <strong>${esc(p.bonif_descricao)}</strong> (R$ ${fmtN(p.bonif_prod_valor)}/un). Informe a quantidade acima para ver o cálculo.</span>`;
+    return;
+  }
+  const totalBonif=v*p.bonif_valor_unit;
+  const qtdBonif=totalBonif/p.bonif_prod_valor;
+  const qtdBonifInt=Math.floor(qtdBonif);
+  calc.innerHTML=
+    `<span>🎁 Comprando <strong>${v}</strong> unidades →</span>`+
+    `<span>${v} × R$${fmtN(p.bonif_valor_unit)} = <strong>R$ ${fmtN(totalBonif)}</strong> em bonificação →</span>`+
+    `<span class="resultado">🎁 ${qtdBonifInt} unidade${qtdBonifInt!==1?'s':''} de ${esc(p.bonif_descricao)}</span>`+
+    `<span style="font-size:11px;color:#aaa">(R$ ${fmtN(p.bonif_prod_valor)}/un)</span>`;
+}
+
+let _cnpjDuplicadoOk=false;
+
+async function verificarCnpjDuplicado(){
+  const cnpj=document.getElementById('f-cnpj').value.replace(/\D/g,'');
+  if(cnpj.length!==14||!_formCampanha)return;
+  _cnpjDuplicadoOk=false;
+  const{data}=await sb.from('cc_pedidos')
+    .select('id,created_at,razao_social')
+    .eq('campanha_id',_formCampanha.id)
+    .eq('cnpj',document.getElementById('f-cnpj').value)
+    .limit(1);
+  if(data&&data.length>0){
+    const dt=new Date(data[0].created_at).toLocaleString('pt-BR');
+    document.getElementById('modal-cnpj-txt').innerHTML=
+      `Este CNPJ já enviou um pedido para esta campanha em <strong>${dt}</strong> (${esc(data[0].razao_social)}).<br><br>Deseja continuar e registrar um pedido adicional?`;
+    document.getElementById('modal-cnpj').style.display='flex';
+  }else{
+    _cnpjDuplicadoOk=true;
+  }
+}
+
+function fecharModalCnpj(continuar){
+  document.getElementById('modal-cnpj').style.display='none';
+  _cnpjDuplicadoOk=continuar;
+  if(!continuar){
+    document.getElementById('f-cnpj').value='';
+    document.getElementById('f-cnpj').focus();
+  }
+}
+
+function fmtCNPJ(el){
+  let v=el.value.replace(/\D/g,'').slice(0,14);
+  if(v.length>12)v=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
+  else if(v.length>8)v=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
+  else if(v.length>5)v=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
+  else if(v.length>2)v=v.slice(0,2)+'.'+v.slice(2);
+  el.value=v;
+}
+
+function showFormErr(m){const el=document.getElementById('form-alerta');el.textContent=m;el.style.display='block';el.scrollIntoView({behavior:'smooth',block:'center'});}
+function hideFormErr(){document.getElementById('form-alerta').style.display='none';}
+
+async function submeterPedido(){
+  hideFormErr();
+  const razaoSocial=document.getElementById('f-razao').value.trim();
+  const cnpj=document.getElementById('f-cnpj').value.trim();
+  if(!razaoSocial){showFormErr('Por favor, informe a Razão Social.');return;}
+  if(cnpj.replace(/\D/g,'').length!==14){showFormErr('CNPJ inválido.');return;}
+
+  const itens=_formProdutos.map((p,i)=>{
+    const qty=parseInt(document.getElementById('q'+i).value)||0;
+    const bonifQty=p.bonif_descricao&&qty>0?Math.floor(qty*p.bonif_valor_unit/p.bonif_prod_valor):null;
+    return {
+      produto_id:p.id,descricao:p.descricao,ean:p.ean,valor_unit:p.valor_unit,quantidade:qty,
+      bonif_descricao:p.bonif_descricao||null,bonif_ean:p.bonif_ean||null,
+      bonif_quantidade:bonifQty
+    };
+  }).filter(it=>it.quantidade>0);
+
+  if(!itens.length){showFormErr('Informe a quantidade de pelo menos um produto.');return;}
+
+  // Verificar se o CNPJ foi validado (sem duplicata ou usuário aceitou continuar)
+  const cnpjRaw=cnpj.replace(/\D/g,'');
+  if(!_cnpjDuplicadoOk){
+    // Disparar a verificação caso o usuário não tenha saído do campo
+    const{data:pedExist}=await sb.from('cc_pedidos')
+      .select('id').eq('campanha_id',_formCampanha.id).eq('cnpj',cnpj).limit(1);
+    if(pedExist&&pedExist.length>0){
+      await verificarCnpjDuplicado();
+      return;
+    }
+  }
+
+  // Verificar limites por produto
+  const prodsComLimite=_formProdutos.filter(p=>p.limite_qtd);
+  if(prodsComLimite.length){
+    const pedIds=(await sb.from('cc_pedidos').select('id').eq('campanha_id',_formCampanha.id)).data?.map(p=>p.id)||[];
+    if(pedIds.length){
+      const{data:itensExist}=await sb.from('cc_pedido_itens').select('produto_id,quantidade').in('pedido_id',pedIds);
+      for(const it of itens){
+        const prod=_formProdutos.find(p=>p.id===it.produto_id);
+        if(!prod?.limite_qtd)continue;
+        const jaOrdenado=(itensExist||[]).filter(e=>e.produto_id===it.produto_id).reduce((s,e)=>s+(e.quantidade||0),0);
+        const disponivel=prod.limite_qtd-jaOrdenado;
+        if(disponivel<=0){
+          showFormErr(`O limite desta campanha para "${prod.descricao}" já foi atingido (${prod.limite_qtd} unidades). Não é possível registrar mais pedidos para este produto.`);
+          return;
+        }
+        if(it.quantidade>disponivel){
+          showFormErr(`Quantidade solicitada de "${prod.descricao}" (${it.quantidade} un.) excede o disponível (${disponivel} un. restantes de ${prod.limite_qtd} un. no total).`);
+          return;
+        }
+      }
+    }
+  }
+
+  const btn=document.getElementById('btn-submit-form');
+  btn.disabled=true;btn.textContent='⏳ Enviando...';
+
+  const{data:ped,error:e1}=await sb.from('cc_pedidos').insert({
+    campanha_id:_formCampanha.id,razao_social:razaoSocial,cnpj
+  }).select().single();
+  if(e1){showFormErr('Erro ao enviar: '+e1.message);btn.disabled=false;btn.textContent='✅ Confirmar Pedido';return;}
+
+  const{error:e2}=await sb.from('cc_pedido_itens').insert(itens.map(it=>({pedido_id:ped.id,...it})));
+  if(e2){showFormErr('Erro ao salvar itens: '+e2.message);btn.disabled=false;btn.textContent='✅ Confirmar Pedido';return;}
+
+  // Mostra resumo de bonificações na tela de sucesso
+  const bonifs=itens.filter(it=>it.bonif_quantidade>0);
+  if(bonifs.length){
+    document.getElementById('sucesso-resumo-bonif').style.display='block';
+    document.getElementById('sucesso-bonif-lista').innerHTML=bonifs.map(it=>
+      `<div style="margin-bottom:6px">✅ <strong>${it.descricao}</strong> × ${it.quantidade} un → 🎁 <strong>${it.bonif_quantidade} unidade${it.bonif_quantidade!==1?'s':''}</strong> de <em>${it.bonif_descricao}</em></div>`
+    ).join('');
+  }
+
+  document.getElementById('form-main').style.display='none';
+  document.getElementById('form-sucesso').style.display='block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ─────────────────────────────
+// EXPORT EXCEL
+// ─────────────────────────────
+
+// Estilos reutilizáveis
+const XS={
+  titulo:{font:{bold:true,sz:14,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1B5E20'}},alignment:{horizontal:'left',vertical:'center'}},
+  sub:   {font:{sz:10,italic:true,color:{rgb:'64748B'}},fill:{fgColor:{rgb:'F8FAFC'}}},
+  vazio: {fill:{fgColor:{rgb:'FFFFFF'}}},
+  cab:   {font:{bold:true,sz:11,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'15a563'}},alignment:{horizontal:'left',vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'0F8A52'}}}},
+  cabNum:{font:{bold:true,sz:11,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'15a563'}},alignment:{horizontal:'right',vertical:'center'}},
+  dado:  {font:{sz:11},fill:{fgColor:{rgb:'FFFFFF'}},alignment:{vertical:'center'}},
+  dadoAlt:{font:{sz:11},fill:{fgColor:{rgb:'F0FDF4'}},alignment:{vertical:'center'}},
+  num:   {font:{bold:true,sz:12,color:{rgb:'15a563'}},fill:{fgColor:{rgb:'FFFFFF'}},alignment:{horizontal:'right',vertical:'center'}},
+  numAlt:{font:{bold:true,sz:12,color:{rgb:'15a563'}},fill:{fgColor:{rgb:'F0FDF4'}},alignment:{horizontal:'right',vertical:'center'}},
+  secBonif:{font:{bold:true,sz:12,color:{rgb:'856404'}},fill:{fgColor:{rgb:'FFF3CD'}},alignment:{vertical:'center'}},
+  cabBonif:{font:{bold:true,sz:11,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'7B5EA7'}},alignment:{horizontal:'left',vertical:'center'}},
+  cabBonifNum:{font:{bold:true,sz:11,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'7B5EA7'}},alignment:{horizontal:'right',vertical:'center'}},
+  numBonif:{font:{bold:true,sz:12,color:{rgb:'7B5EA7'}},fill:{fgColor:{rgb:'FFFFFF'}},alignment:{horizontal:'right',vertical:'center'}},
+  numBonifAlt:{font:{bold:true,sz:12,color:{rgb:'7B5EA7'}},fill:{fgColor:{rgb:'F5F3FF'}},alignment:{horizontal:'right',vertical:'center'}},
+  dadoBonifAlt:{font:{sz:11},fill:{fgColor:{rgb:'F5F3FF'}},alignment:{vertical:'center'}},
+};
+function sc(v,s){return {v,s};}
+function applySheetStyle(ws,noCols){
+  ws['!sheetViews']=[{showGridLines:false}];
+  ws['!cols']=noCols;
+  return ws;
+}
+
+async function exportarConsolidado(){
+  const pedIds=_pedidosCache.map(p=>p.id);
+  if(!pedIds.length){toast('Nenhum pedido.','err');return;}
+  const{data:itens}=await sb.from('cc_pedido_itens').select('*').in('pedido_id',pedIds);
+
+  const mapProd={};const mapBonif={};
+  (itens||[]).forEach(it=>{
+    if(it.quantidade>0){
+      const k=it.produto_id;
+      if(!mapProd[k])mapProd[k]={descricao:it.descricao,ean:it.ean,total:0};
+      mapProd[k].total+=it.quantidade;
+    }
+    if(it.bonif_quantidade>0&&it.bonif_descricao){
+      const k=it.bonif_ean||it.bonif_descricao;
+      if(!mapBonif[k])mapBonif[k]={descricao:it.bonif_descricao,ean:it.bonif_ean||'',total:0};
+      mapBonif[k].total+=it.bonif_quantidade;
+    }
+  });
+
+  const nm=(_campanhaCache.nome||'Coopefarma').replace(/[^a-zA-Z0-9]/g,'_');
+  const wb=XLSX.utils.book_new();
+
+  // ── ABA 1: Pedido Fornecedor ──
+  const prodList=Object.values(mapProd).sort((a,b)=>a.descricao.localeCompare(b.descricao));
+  const bonifList=Object.values(mapBonif).sort((a,b)=>a.descricao.localeCompare(b.descricao));
+
+  const rows1=[
+    [sc(_campanhaCache.nome+' — PEDIDO CONSOLIDADO',XS.titulo),sc('',XS.titulo),sc('',XS.titulo)],
+    [sc('Gerado em: '+new Date().toLocaleString('pt-BR'),XS.sub),sc('',XS.sub),sc('',XS.sub)],
+    [sc('',XS.vazio),sc('',XS.vazio),sc('',XS.vazio)],
+    [sc('Descricao do Produto',XS.cab),sc('Codigo EAN',XS.cab),sc('Quantidade Total',XS.cabNum)],
+    ...prodList.map((d,i)=>[sc(d.descricao,i%2?XS.dadoAlt:XS.dado),sc(d.ean,i%2?XS.dadoAlt:XS.dado),sc(d.total,i%2?XS.numAlt:XS.num)]),
+  ];
+
+  if(bonifList.length){
+    rows1.push([sc('',XS.vazio),sc('',XS.vazio),sc('',XS.vazio)]);
+    rows1.push([sc('BONIFICACOES GERADAS',XS.secBonif),sc('',XS.secBonif),sc('',XS.secBonif)]);
+    rows1.push([sc('Produto Bonificado',XS.cabBonif),sc('Codigo EAN',XS.cabBonif),sc('Qtd. Total',XS.cabBonifNum)]);
+    bonifList.forEach((d,i)=>rows1.push([
+      sc(d.descricao,i%2?XS.dadoBonifAlt:XS.dado),
+      sc(d.ean,i%2?XS.dadoBonifAlt:XS.dado),
+      sc(Math.floor(d.total),i%2?XS.numBonifAlt:XS.numBonif)
+    ]));
+  }
+
+  const s1=XLSX.utils.aoa_to_sheet(rows1);
+  s1['!merges']=[{s:{r:0,c:0},e:{r:0,c:2}},{s:{r:1,c:0},e:{r:1,c:2}}];
+  if(bonifList.length){
+    const bRow=4+prodList.length+1;
+    s1['!merges'].push({s:{r:bRow,c:0},e:{r:bRow,c:2}});
+  }
+  s1['!rows']=[{hpt:24},{hpt:16}];
+  applySheetStyle(s1,[{wch:55},{wch:20},{wch:18}]);
+  XLSX.utils.book_append_sheet(wb,s1,'Pedido Fornecedor');
+  XLSX.writeFile(wb,'Pedido_Consolidado_'+nm+'.xlsx');
+}
+
+async function exportarDetalhado(){
+  if(!_pedidosCache.length){toast('Nenhum pedido.','err');return;}
+  const pedIds=_pedidosCache.map(p=>p.id);
+  const{data:itens}=await sb.from('cc_pedido_itens').select('*').in('pedido_id',pedIds);
+  const nm=(_campanhaCache.nome||'Coopefarma').replace(/[^a-zA-Z0-9]/g,'_');
+  const wb=XLSX.utils.book_new();
+
+  const cabDet=[
+    sc('Data/Hora',XS.cab),sc('Razao Social',XS.cab),sc('CNPJ',XS.cab),
+    sc('Descricao do Produto',XS.cab),sc('Codigo EAN',XS.cab),
+    sc('Quantidade',XS.cabNum),sc('Bonificacao (produto)',XS.cab),sc('Bonificacao (qtd.)',XS.cabNum)
+  ];
+
+  const dataRows=[];
+  _pedidosCache.forEach(ped=>{
+    const dt=new Date(ped.created_at).toLocaleString('pt-BR');
+    (itens||[]).filter(i=>i.pedido_id===ped.id&&i.quantidade>0).forEach(it=>{
+      const i=dataRows.length;
+      const s=i%2?XS.dadoAlt:XS.dado;
+      const sn=i%2?XS.numAlt:XS.num;
+      dataRows.push([
+        sc(dt,s),sc(ped.razao_social,s),sc(ped.cnpj,s),
+        sc(it.descricao,s),sc(it.ean,s),
+        sc(it.quantidade,sn),
+        sc(it.bonif_descricao||'',s),
+        sc(it.bonif_quantidade?Math.floor(it.bonif_quantidade):'',sn)
+      ]);
+    });
+  });
+
+  const rows=[
+    [sc(_campanhaCache.nome+' — PEDIDOS DETALHADOS',XS.titulo),...Array(7).fill(sc('',XS.titulo))],
+    [sc('Gerado em: '+new Date().toLocaleString('pt-BR'),XS.sub),...Array(7).fill(sc('',XS.sub))],
+    Array(8).fill(sc('',XS.vazio)),
+    cabDet,
+    ...dataRows
+  ];
+
+  const s=XLSX.utils.aoa_to_sheet(rows);
+  s['!merges']=[{s:{r:0,c:0},e:{r:0,c:7}},{s:{r:1,c:0},e:{r:1,c:7}}];
+  s['!rows']=[{hpt:24},{hpt:16}];
+  applySheetStyle(s,[{wch:20},{wch:42},{wch:20},{wch:50},{wch:16},{wch:12},{wch:32},{wch:16}]);
+  XLSX.utils.book_append_sheet(wb,s,'Pedidos Detalhados');
+  XLSX.writeFile(wb,'Pedidos_Detalhados_'+nm+'.xlsx');
+}
+
+// ─────────────────────────────
+// UTILITÁRIOS
+// ─────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtN(v){return v!=null?Number(v).toFixed(2).replace('.',','):'0,00';}
+function toast(msg,tipo='ok'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='show '+(tipo==='err'?'err':'ok');
+  setTimeout(()=>{el.className='';},3000);
+}
+
+// Eventos dos campos de preview de bonificação (DOM já carregado inline)
+document.getElementById('n-bonif-valor-unit').addEventListener('input',atualizarPreviewBonif);
+document.getElementById('n-bonif-prod-valor').addEventListener('input',atualizarPreviewBonif);
+document.getElementById('n-bonif-desc').addEventListener('input',atualizarPreviewBonif);
+
+init();
+</script>
+</body>
+</html>
