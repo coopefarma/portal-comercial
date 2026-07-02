@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Formulário Comercial — Coopefarma</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
+.hidden{display:none!important}
+.btn{padding:9px 18px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;font-family:'Inter',sans-serif}
+.btn-primary{background:#15a563;color:#fff}.btn-primary:hover{background:#0f8a52}
+.btn-danger{background:#e8112d;color:#fff}.btn-danger:hover{background:#c00d26}
+.btn-outline{background:#fff;color:#444;border:1.5px solid #ddd}.btn-outline:hover{border-color:#15a563;color:#15a563}
+.btn-sm{padding:6px 12px;font-size:12px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-verde{background:#d4edda;color:#155724}.badge-azul{background:#dbeafe;color:#1e40af}
+
+/* ── LOGIN ── */
+#tela-login{display:none;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0d1b2a,#1b4332)}
+.login-box{background:#fff;border-radius:16px;padding:40px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-logo{text-align:center;margin-bottom:28px}.login-logo img{height:55px;object-fit:contain}
+.login-logo h2{font-family:'Poppins',sans-serif;font-size:17px;color:#15a563;margin-top:10px}
+.login-logo p{color:#888;font-size:12px}
+.login-box label{font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:5px}
+.login-box input{width:100%;padding:11px 14px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;margin-bottom:14px;font-family:'Inter',sans-serif}
+.login-box input:focus{border-color:#15a563;outline:none}
+.login-erro{color:#e8112d;font-size:12px;margin-bottom:10px;text-align:center;min-height:18px}
+
+/* ── APP ── */
+#tela-app{display:none;flex-direction:column;min-height:100vh}
+.topbar{background:#15a563;color:#fff;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.15);flex-shrink:0}
+.topbar-logo{display:flex;align-items:center;gap:10px}
+.topbar-logo img{height:34px;object-fit:contain}
+.topbar-logo span{font-family:'Poppins',sans-serif;font-size:16px;font-weight:700}
+.topbar-nav{display:flex;gap:4px}
+.nav-btn{padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:rgba(255,255,255,.85);background:transparent;border:none;font-family:'Inter',sans-serif}
+.nav-btn:hover,.nav-btn.ativo{background:rgba(255,255,255,.2);color:#fff}
+.topbar-user{display:flex;align-items:center;gap:12px;font-size:13px;opacity:.9}
+.topbar-user a,.topbar-user button{background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:'Inter',sans-serif;text-decoration:none}
+.main{flex:1;padding:24px;max-width:900px;width:100%;margin:0 auto}
+.page{display:none}.page.ativo{display:block}
+.page-title{font-family:'Poppins',sans-serif;font-size:22px;font-weight:800;color:#1a1a2e}
+.page-sub{color:#64748b;font-size:14px;margin-top:4px}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:12px;flex-wrap:wrap}
+
+/* ── CARDS ── */
+.f-card{background:#fff;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:14px}
+.f-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.f-card-nome{font-family:'Poppins',sans-serif;font-size:15px;font-weight:700;color:#1a1a2e}
+.f-card-meta{font-size:12px;color:#64748b;margin:6px 0 12px}
+.f-card-actions{display:flex;gap:8px;flex-wrap:wrap}
+.link-box{background:#f0faf5;border:2px dashed #15a563;border-radius:8px;padding:12px 16px;font-size:12px;font-family:monospace;word-break:break-all;color:#1b4332;margin-top:10px}
+
+/* ── FORM SEÇÕES (admin) ── */
+.form-section{background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:20px}
+.form-section h3{font-family:'Poppins',sans-serif;font-size:16px;font-weight:700;margin-bottom:16px;color:#1a1a2e}
+.field{margin-bottom:14px}
+.field label{font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+.field input,.field select,.field textarea{width:100%;padding:10px 14px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#15a563}
+.field textarea{min-height:60px;resize:vertical}
+
+/* ── EDITOR DE PERGUNTAS ── */
+.q-row{background:#fafbfc;border:1.5px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.q-row-top{display:flex;gap:10px;align-items:flex-start}
+.q-num{background:#15a563;color:#fff;border-radius:50%;width:24px;height:24px;flex:0 0 24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-top:4px}
+.q-row-main{flex:1}
+.q-row-main textarea{width:100%;padding:8px 10px;border:1.5px solid #e0e0e0;border-radius:6px;font-family:'Inter',sans-serif;font-size:13px;resize:vertical}
+.q-row-controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.q-row-controls select{padding:6px 8px;font-size:12px;border:1.5px solid #e0e0e0;border-radius:6px;font-family:'Inter',sans-serif}
+.q-row-controls label{font-size:12px;display:flex;align-items:center;gap:4px;color:#555}
+.icon-btn{background:#fff;border:1.5px solid #e0e0e0;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:13px;color:#555}
+.icon-btn:hover{border-color:#15a563;color:#15a563}
+.tag-sugestao{font-size:10px;color:#856404;background:#fff3cd;padding:2px 7px;border-radius:5px;font-weight:600}
+
+/* ── QA (respostas) ── */
+.qa{border-bottom:1px solid #f1f5f9;padding:10px 0}
+.qa:last-child{border-bottom:none}
+.qa .q{font-weight:700;font-size:12px;color:#475569;text-transform:uppercase;letter-spacing:.3px}
+.qa .a{font-size:14px;margin-top:4px;white-space:pre-wrap;color:#1a1a2e}
+
+/* ── EMPTY / LOADING ── */
+.empty{text-align:center;padding:48px 20px;color:#aaa;background:#fff;border-radius:12px}
+.empty-icon{font-size:3rem;margin-bottom:10px}
+.loading-box{text-align:center;padding:40px;color:#64748b}
+.spin{width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#15a563;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:24px;right:24px;background:#1a1a2e;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;transition:opacity .3s;z-index:9999;max-width:340px}
+#toast.show{opacity:1}#toast.ok{background:#15a563}#toast.err{background:#e8112d}
+.required{color:#c62828}
+
+/* ════════════════════════════════════════════════
+   TELA DE PREENCHIMENTO (associado/prospect — pública)
+════════════════════════════════════════════════ */
+#tela-preench{display:none;flex-direction:column;min-height:100vh;background:#f0f4f0}
+.form-header{background:linear-gradient(135deg,#1B5E20,#2E7D32 60%,#388E3C);color:#fff;padding:28px 20px;text-align:center;box-shadow:0 3px 12px rgba(0,0,0,.25)}
+.form-header .logo-img{height:60px;object-fit:contain;margin-bottom:12px;background:#fff;border-radius:8px;padding:4px 10px}
+.form-header h1{font-family:'Poppins',sans-serif;font-size:1.4rem;font-weight:800;margin-bottom:4px}
+.form-header p{font-size:.88rem;opacity:.88}
+.form-container{max-width:760px;margin:28px auto;padding:0 16px 60px;width:100%}
+.form-card{background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.09);margin-bottom:20px}
+.form-card h2{font-family:'Poppins',sans-serif;font-size:.98rem;font-weight:700;color:#1B5E20;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid #e8f5e9}
+.form-field{margin-bottom:16px}
+.form-field label{display:block;font-size:.78rem;font-weight:700;color:#444;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+.form-field input,.form-field select,.form-field textarea{width:100%;padding:12px 14px;border:2px solid #e0e0e0;border-radius:8px;font-size:.95rem;outline:none;font-family:'Inter',sans-serif}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:#15a563}
+.form-field textarea{min-height:90px;resize:vertical}
+.btn-submit{width:100%;padding:16px;background:#15a563;color:#fff;border:none;border-radius:10px;font-size:1.1rem;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif}
+.btn-submit:hover{background:#0f8a52}.btn-submit:disabled{background:#aaa;cursor:not-allowed}
+.form-alert{padding:13px 16px;border-radius:8px;font-size:.875rem;margin-bottom:16px;display:none;font-weight:500}
+.form-alert-err{background:#ffebee;color:#c62828;border-left:4px solid #c62828}
+.success-screen{display:none;text-align:center;padding:60px 20px}
+.success-screen .icon{font-size:5rem;margin-bottom:20px}
+.success-screen h2{color:#1B5E20;font-size:1.8rem;margin-bottom:10px;font-family:'Poppins',sans-serif}
+.success-screen p{color:#666;line-height:1.7}
+
+@media(max-width:768px){.topbar-nav{display:none}.main{padding:16px}}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     PREENCHIMENTO (associado/prospect)
+════════════════════════════════════════════════ -->
+<div id="tela-preench">
+  <div class="form-header">
+    <img class="logo-img" src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
+    <h1 id="pr-titulo">Questionário Comercial</h1>
+    <p>Preencha as informações abaixo</p>
+  </div>
+  <div class="form-container">
+    <div id="pr-main">
+      <div class="form-alert form-alert-err" id="pr-alerta"></div>
+      <div class="form-card" id="pr-card-perguntas">
+        <h2>📋 Perguntas</h2>
+        <div class="loading-box"><div class="spin"></div>Carregando…</div>
+      </div>
+      <button class="btn-submit" id="pr-btn-enviar" onclick="submeterRespostas()">✅ Enviar respostas</button>
+    </div>
+    <div class="success-screen" id="pr-sucesso">
+      <div class="icon">🎉</div>
+      <h2>Respostas enviadas!</h2>
+      <p>Obrigado pelo seu tempo — a equipe Coopefarma vai analisar e entrar em contato.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     LOGIN
+════════════════════════════════════════════════ -->
+<div id="tela-login">
+  <div class="login-box">
+    <div class="login-logo">
+      <img src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
+      <h2>Formulário Comercial</h2>
+      <p>Prospecção de associados — Coopefarma</p>
+    </div>
+    <label>E-mail</label>
+    <input type="email" id="l-email" placeholder="seu@email.com" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('l-senha').focus()"/>
+    <label>Senha</label>
+    <input type="password" id="l-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"/>
+    <div class="login-erro" id="l-erro"></div>
+    <button class="btn btn-primary" style="width:100%;padding:12px" onclick="fazerLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAINEL ADMIN
+════════════════════════════════════════════════ -->
+<div id="tela-app">
+  <div class="topbar">
+    <div class="topbar-logo">
+      <img src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
+      <span>Comercial</span>
+    </div>
+    <div class="topbar-nav">
+      <button class="nav-btn" onclick="irPara('lista')">📄 Formulários</button>
+      <button class="nav-btn" onclick="irPara('novo')">➕ Novo Formulário</button>
+    </div>
+    <div class="topbar-user">
+      <a href="index.html">🏠 Início</a>
+      <span id="u-email"></span>
+      <button onclick="fazerLogout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- LISTA -->
+    <div class="page" id="pg-lista">
+      <div class="page-header">
+        <div><div class="page-title">📄 Formulários</div><div class="page-sub">Prospecção de novos associados</div></div>
+        <button class="btn btn-primary" onclick="irPara('novo')">➕ Novo Formulário</button>
+      </div>
+      <div id="lista-wrap"><div class="loading-box"><div class="spin"></div>Carregando…</div></div>
+    </div>
+
+    <!-- NOVO / EDITOR -->
+    <div class="page" id="pg-novo">
+      <div class="page-header">
+        <div><div class="page-title">➕ Novo Formulário</div><div class="page-sub">Edite as perguntas antes de gerar o link</div></div>
+        <button class="btn btn-outline" onclick="irPara('lista')">← Voltar</button>
+      </div>
+
+      <div class="form-section">
+        <h3>📝 Identificação</h3>
+        <div class="field"><label>Título do formulário</label><input type="text" id="n-titulo"/></div>
+        <div class="field"><label>Nome do destinatário (referência interna)</label><input type="text" id="n-dest" placeholder="Ex.: João da Farmácia Central"/></div>
+      </div>
+
+      <div class="form-section">
+        <h3>❓ Perguntas</h3>
+        <div id="perguntasWrap"></div>
+        <button class="btn btn-outline" id="addPergunta">+ Adicionar pergunta</button>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:flex-end">
+        <button class="btn btn-outline" onclick="irPara('lista')">Cancelar</button>
+        <button class="btn btn-primary" id="salvarBtn" style="padding:11px 28px">💾 Salvar e gerar link</button>
+      </div>
+      <div id="resultadoSalvar" style="margin-top:16px"></div>
+    </div>
+
+    <!-- RESPOSTAS -->
+    <div class="page" id="pg-respostas">
+      <div class="page-header">
+        <button class="btn btn-outline btn-sm" onclick="irPara('lista')">← Formulários</button>
+      </div>
+      <div id="respostas-wrap"></div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SB_URL='https://uofcbqqbubvvltnzvhsx.supabase.co';
+const SB_KEY='sb_publishable_SQ0x7RDU9B0u5lqvn2pr1Q_4NwoJMY9';
+const {createClient}=supabase;
+const sb=createClient(SB_URL,SB_KEY);
+const BASE=location.origin+location.pathname;
+
+const TIPOS={curto:'Texto curto',longo:'Texto longo',numero:'Número',sim_nao:'Sim / Não',multipla:'Múltipla escolha'};
+
+function defaultPerguntas(){
+  const mk=(id,texto,tipo,extra)=>Object.assign({id,texto,tipo,obrigatoria:true,opcoes:[]},extra||{});
+  return [
+    mk('p1','Nome completo','curto'),
+    mk('p2','Telefone / WhatsApp para contato','curto'),
+    mk('p3','E-mail','curto',{obrigatoria:false}),
+    mk('p4','Você é farmacêutico(a)?','sim_nao'),
+    mk('p5','Você é proprietário(a) da farmácia/drogaria?','multipla',{opcoes:['Sim','Não','Sócio(a)']}),
+    mk('p6','Se não for o(a) proprietário(a), qual sua função na loja?','curto',{obrigatoria:false}),
+    mk('p7','Nome fantasia da loja','curto'),
+    mk('p8','Razão social','curto'),
+    mk('p9','CNPJ','curto'),
+    mk('p10','Endereço (rua e número)','curto'),
+    mk('p11','Bairro','curto'),
+    mk('p12','Cidade','curto'),
+    mk('p13','Estado','curto'),
+    mk('p14','Há quanto tempo a loja está em atividade?','curto',{obrigatoria:false}),
+    mk('p15','Faturamento médio mensal da loja','multipla',{opcoes:['Até R$ 50 mil','R$ 50 mil a R$ 100 mil','R$ 100 mil a R$ 200 mil','R$ 200 mil a R$ 500 mil','Acima de R$ 500 mil']}),
+    mk('p16','Quantos funcionários a loja possui?','numero'),
+    mk('p17','Qual a área de vendas da loja (m²)?','numero'),
+    mk('p18','Quantos caixas (checkouts) a loja possui?','numero',{obrigatoria:false}),
+    mk('p19','A loja possui farmacêutico responsável técnico em tempo integral?','sim_nao',{obrigatoria:false}),
+    mk('p20','A loja pertence atualmente a alguma rede associativista ou cooperativa?','sim_nao'),
+    mk('p21','Se sim, qual rede?','curto',{obrigatoria:false}),
+    mk('p22','Há quanto tempo está nessa rede?','curto',{obrigatoria:false}),
+    mk('p23','O que motiva o interesse em associar-se à Coopefarma?','longo'),
+    mk('p24','Em uma situação em que um concorrente esteja praticando preços bem baixos no mercado, como você administraria essa situação?','longo'),
+    mk('p25','A Coopefarma disponibiliza um tabloide mensal de ofertas, com o objetivo de atrair o cliente para a loja e posicionar a marca na mente do consumidor. Você pretende utilizar essa ferramenta? De que forma?','longo'),
+    mk('p26','A Coopefarma possui ferramentas de gestão de preços e de análise de custos operacionais. Você pretende trabalhar com essas ferramentas no dia a dia da sua loja?','longo'),
+    mk('p27','Como você toma hoje as decisões de compra da sua loja (preço, prazo de pagamento, relacionamento com fornecedor, giro do produto)?','longo',{obrigatoria:false}),
+    mk('p28','Se precisasse reduzir os custos operacionais da loja em 10% este mês, quais seriam suas primeiras ações?','longo',{obrigatoria:false}),
+    mk('p29','Quais indicadores você acompanha hoje para medir o sucesso do seu negócio?','longo',{obrigatoria:false}),
+    mk('p30','O que você espera alcançar ao se associar a uma rede como a Coopefarma nos próximos 12 meses?','longo',{obrigatoria:false})
+  ];
+}
+
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtData(iso){if(!iso)return'—';const d=new Date(iso);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+function newId(){return crypto.randomUUID?crypto.randomUUID():'p'+Date.now()+Math.random().toString(16).slice(2);}
+function toast(msg,tipo='ok'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='show '+(tipo==='err'?'err':'ok');
+  setTimeout(()=>{el.className='';},3000);
+}
+function copiarLink(token){
+  navigator.clipboard.writeText(BASE+'?fc='+token).then(()=>toast('Link copiado!','ok'));
+}
+
+/* ─────────────────────────────
+   INIT / ROTEAMENTO
+───────────────────────────── */
+async function init(){
+  const params=new URLSearchParams(location.search);
+  const fc=params.get('fc');
+  if(fc){document.getElementById('tela-preench').style.display='flex';await initPreench(fc);return;}
+  const{data:{session}}=await sb.auth.getSession();
+  if(session){
+    document.getElementById('u-email').textContent=session.user.email;
+    document.getElementById('tela-app').style.display='flex';
+    irPara('lista');
+  }else{document.getElementById('tela-login').style.display='flex';}
+}
+init();
+
+async function fazerLogin(){
+  const email=document.getElementById('l-email').value.trim();
+  const senha=document.getElementById('l-senha').value;
+  document.getElementById('l-erro').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:senha});
+  if(error){document.getElementById('l-erro').textContent='E-mail ou senha incorretos.';return;}
+  document.getElementById('u-email').textContent=data.user.email;
+  document.getElementById('tela-login').style.display='none';
+  document.getElementById('tela-app').style.display='flex';
+  irPara('lista');
+}
+async function fazerLogout(){await sb.auth.signOut();location.reload();}
+
+function irPara(pag){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('ativo'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('ativo'));
+  document.getElementById('pg-'+pag).classList.add('ativo');
+  const idx={lista:0,novo:1,respostas:2}[pag];
+  const btns=document.querySelectorAll('.nav-btn');
+  if(btns[idx])btns[idx].classList.add('ativo');
+  if(pag==='lista')carregarLista();
+  if(pag==='novo')abrirEditor();
+}
+
+/* ─────────────────────────────
+   LISTA
+───────────────────────────── */
+async function carregarLista(){
+  const el=document.getElementById('lista-wrap');
+  el.innerHTML='<div class="loading-box"><div class="spin"></div>Carregando…</div>';
+  const{data,error}=await sb.from('cm_formularios').select('*').order('created_at',{ascending:false});
+  if(error){el.innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><p>Erro ao carregar: '+esc(error.message)+'</p></div>';return;}
+  if(!data?.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>Nenhum formulário criado ainda.</p></div>';return;}
+  el.innerHTML=data.map(f=>{
+    const badge=f.status==='respondido'?'<span class="badge badge-verde">Respondido</span>':'<span class="badge badge-azul">Aguardando resposta</span>';
+    return `<div class="f-card">
+      <div class="f-card-header">
+        <div class="f-card-nome">${esc(f.destinatario_nome||f.titulo)} ${badge}</div>
+      </div>
+      <div class="f-card-meta">${esc(f.titulo)} · criado em ${fmtData(f.created_at)}${f.respondido_em?' · respondido em '+fmtData(f.respondido_em):''}</div>
+      <div class="f-card-actions">
+        <button class="btn btn-outline btn-sm" onclick="copiarLink('${f.token}')">🔗 Copiar link</button>
+        <button class="btn btn-outline btn-sm" onclick="abrirRespostas('${f.id}')">👁 Ver respostas</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ─────────────────────────────
+   EDITOR
+───────────────────────────── */
+let _editorState=[];
+function abrirEditor(){
+  document.getElementById('n-titulo').value='Questionário Comercial — Prospecção de Associados';
+  document.getElementById('n-dest').value='';
+  document.getElementById('resultadoSalvar').innerHTML='';
+  _editorState=defaultPerguntas();
+  desenharPerguntas();
+}
+function desenharPerguntas(){
+  const wrap=document.getElementById('perguntasWrap');
+  wrap.innerHTML=_editorState.map((q,i)=>{
+    const opcoesField=q.tipo==='multipla'
+      ?`<div class="field" style="margin-top:8px"><label>Opções (separadas por vírgula)</label><input type="text" data-op="${i}" value="${esc((q.opcoes||[]).join(', '))}"></div>`
+      :'';
+    return `<div class="q-row">
+      <div class="q-row-top">
+        <div class="q-num">${i+1}</div>
+        <div class="q-row-main">
+          <textarea data-texto="${i}" rows="2">${esc(q.texto)}</textarea>
+          <div class="q-row-controls">
+            <select data-tipo="${i}">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}"${q.tipo===k?' selected':''}>${v}</option>`).join('')}</select>
+            <label><input type="checkbox" data-obr="${i}"${q.obrigatoria?' checked':''}> obrigatória</label>
+            <button class="icon-btn" data-up="${i}" title="Mover para cima">↑</button>
+            <button class="icon-btn" data-down="${i}" title="Mover para baixo">↓</button>
+            <button class="icon-btn" data-del="${i}" title="Remover">✕</button>
+          </div>
+          ${opcoesField}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-texto]').forEach(el=>el.addEventListener('input',e=>_editorState[+e.target.dataset.texto].texto=e.target.value));
+  wrap.querySelectorAll('[data-tipo]').forEach(el=>el.addEventListener('change',e=>{_editorState[+e.target.dataset.tipo].tipo=e.target.value;desenharPerguntas();}));
+  wrap.querySelectorAll('[data-obr]').forEach(el=>el.addEventListener('change',e=>_editorState[+e.target.dataset.obr].obrigatoria=e.target.checked));
+  wrap.querySelectorAll('[data-op]').forEach(el=>el.addEventListener('input',e=>_editorState[+e.target.dataset.op].opcoes=e.target.value.split(',').map(s=>s.trim()).filter(Boolean)));
+  wrap.querySelectorAll('[data-up]').forEach(el=>el.addEventListener('click',e=>{const i=+e.target.dataset.up;if(i>0){[_editorState[i-1],_editorState[i]]=[_editorState[i],_editorState[i-1]];desenharPerguntas();}}));
+  wrap.querySelectorAll('[data-down]').forEach(el=>el.addEventListener('click',e=>{const i=+e.target.dataset.down;if(i<_editorState.length-1){[_editorState[i+1],_editorState[i]]=[_editorState[i],_editorState[i+1]];desenharPerguntas();}}));
+  wrap.querySelectorAll('[data-del]').forEach(el=>el.addEventListener('click',e=>{_editorState.splice(+e.target.dataset.del,1);desenharPerguntas();}));
+}
+document.getElementById('addPergunta').addEventListener('click',()=>{
+  _editorState.push({id:newId(),texto:'Nova pergunta',tipo:'curto',obrigatoria:false,opcoes:[]});
+  desenharPerguntas();
+});
+document.getElementById('salvarBtn').addEventListener('click',async()=>{
+  const titulo=document.getElementById('n-titulo').value.trim()||'Formulário Comercial';
+  const dest=document.getElementById('n-dest').value.trim();
+  const perguntas=_editorState.filter(q=>q.texto.trim());
+  if(!perguntas.length){toast('Adicione pelo menos uma pergunta.','err');return;}
+  const btn=document.getElementById('salvarBtn');
+  btn.disabled=true;btn.textContent='Salvando…';
+  const token=crypto.randomUUID().replace(/-/g,'').substring(0,16);
+  const{data,error}=await sb.from('cm_formularios').insert({titulo,destinatario_nome:dest||null,token,perguntas,status:'aberto'}).select().single();
+  btn.disabled=false;btn.textContent='💾 Salvar e gerar link';
+  if(error){toast('Erro ao salvar: '+error.message,'err');return;}
+  const link=BASE+'?fc='+data.token;
+  document.getElementById('resultadoSalvar').innerHTML=`<div class="f-card" style="border:2px solid #15a563">
+    <strong>Formulário salvo!</strong> Envie este link para o associado:
+    <div class="link-box">${esc(link)}</div>
+    <button class="btn btn-primary btn-sm" onclick="copiarLink('${data.token}')">🔗 Copiar link</button>
+  </div>`;
+  toast('Formulário criado!','ok');
+});
+
+/* ─────────────────────────────
+   RESPOSTAS
+───────────────────────────── */
+async function abrirRespostas(id){
+  irPara('respostas');
+  const wrap=document.getElementById('respostas-wrap');
+  wrap.innerHTML='<div class="loading-box"><div class="spin"></div>Carregando…</div>';
+  const[{data:form,error:e1},{data:resps,error:e2}]=await Promise.all([
+    sb.from('cm_formularios').select('*').eq('id',id).single(),
+    sb.from('cm_respostas').select('*').eq('formulario_id',id).order('created_at',{ascending:false})
+  ]);
+  if(e1||!form){wrap.innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><p>Formulário não encontrado.</p></div>';return;}
+  const perguntasPorId={};
+  (form.perguntas||[]).forEach(q=>perguntasPorId[q.id]=q.texto);
+  let html=`<div class="f-card">
+    <div class="f-card-nome">${esc(form.destinatario_nome||form.titulo)}</div>
+    <div class="f-card-meta">${esc(form.titulo)} · criado em ${fmtData(form.created_at)}</div>
+    <div class="link-box">${esc(BASE+'?fc='+form.token)}</div>
+    <button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="copiarLink('${form.token}')">🔗 Copiar link</button>
+  </div>`;
+  if(e2||!resps?.length){
+    html+='<div class="empty"><div class="empty-icon">📭</div><p>Ainda não há respostas para este formulário.</p></div>';
+  }else{
+    html+=resps.map(r=>{
+      const qas=Object.entries(r.respostas||{}).map(([qid,val])=>
+        `<div class="qa"><div class="q">${esc(perguntasPorId[qid]||qid)}</div><div class="a">${esc(val||'—')}</div></div>`
+      ).join('');
+      return `<div class="f-card"><div class="f-card-meta">Respondido em ${fmtData(r.created_at)}</div>${qas}</div>`;
+    }).join('');
+  }
+  wrap.innerHTML=html;
+}
+
+/* ─────────────────────────────
+   PREENCHIMENTO PÚBLICO (?fc=token)
+───────────────────────────── */
+let _prForm=null;
+async function initPreench(token){
+  const{data:form}=await sb.from('cm_formularios').select('*').eq('token',token).single();
+  if(!form){
+    document.getElementById('pr-card-perguntas').innerHTML='<h2>📋 Perguntas</h2><div style="text-align:center;padding:32px;color:#c62828">⚠️ Link inválido ou expirado.</div>';
+    document.getElementById('pr-btn-enviar').style.display='none';
+    return;
+  }
+  _prForm=form;
+  document.getElementById('pr-titulo').textContent=form.titulo;
+  if(form.status==='respondido'){
+    document.getElementById('pr-main').style.display='none';
+    document.getElementById('pr-sucesso').style.display='block';
+    document.getElementById('pr-sucesso').querySelector('p').textContent='Este formulário já foi respondido. Obrigado pelo contato — a equipe Coopefarma vai entrar em contato em breve.';
+    return;
+  }
+  const perguntas=form.perguntas||[];
+  document.getElementById('pr-card-perguntas').innerHTML='<h2>📋 Perguntas</h2>'+perguntas.map((q,i)=>renderCampo(q,i)).join('');
+}
+function renderCampo(q,i){
+  const reqMark=q.obrigatoria?' <span class="required">*</span>':'';
+  let campo='';
+  if(q.tipo==='longo')campo=`<textarea id="campo_${q.id}"></textarea>`;
+  else if(q.tipo==='numero')campo=`<input type="number" id="campo_${q.id}">`;
+  else if(q.tipo==='sim_nao')campo=`<select id="campo_${q.id}"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>`;
+  else if(q.tipo==='multipla')campo=`<select id="campo_${q.id}"><option value="">Selecione</option>${(q.opcoes||[]).map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;
+  else campo=`<input type="text" id="campo_${q.id}">`;
+  return `<div class="form-field"><label>${i+1}. ${esc(q.texto)}${reqMark}</label>${campo}</div>`;
+}
+async function submeterRespostas(){
+  if(!_prForm)return;
+  const alerta=document.getElementById('pr-alerta');
+  alerta.style.display='none';
+  const respostas={};
+  for(const q of (_prForm.perguntas||[])){
+    const el=document.getElementById('campo_'+q.id);
+    const val=el?el.value.trim():'';
+    if(q.obrigatoria&&!val){alerta.textContent='Responda: '+q.texto;alerta.style.display='block';el.focus();el.scrollIntoView({behavior:'smooth',block:'center'});return;}
+    respostas[q.id]=val;
+  }
+  const btn=document.getElementById('pr-btn-enviar');
+  btn.disabled=true;btn.textContent='Enviando…';
+  const{error:err1}=await sb.from('cm_respostas').insert({formulario_id:_prForm.id,respostas});
+  if(!err1)await sb.from('cm_formularios').update({status:'respondido',respondido_em:new Date().toISOString()}).eq('id',_prForm.id);
+  if(err1){alerta.textContent='Erro ao enviar: '+err1.message;alerta.style.display='block';btn.disabled=false;btn.textContent='✅ Enviar respostas';return;}
+  document.getElementById('pr-main').style.display='none';
+  document.getElementById('pr-sucesso').style.display='block';
+}
+</script>
+</body>
+</html>
