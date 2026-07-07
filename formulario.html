@@ -247,7 +247,7 @@ const {createClient}=supabase;
 const sb=createClient(SB_URL,SB_KEY);
 const BASE=location.origin+location.pathname;
 
-const TIPOS={curto:'Texto curto',longo:'Texto longo',numero:'Número',sim_nao:'Sim / Não',multipla:'Múltipla escolha'};
+const TIPOS={curto:'Texto curto',longo:'Texto longo',numero:'Número',sim_nao:'Sim / Não',multipla:'Múltipla escolha',ranking:'Ranking (numerar prioridade)'};
 
 function defaultPerguntas(){
   const mk=(id,texto,tipo,extra)=>Object.assign({id,texto,tipo,obrigatoria:true,opcoes:[]},extra||{});
@@ -375,7 +375,7 @@ function abrirEditor(){
 function desenharPerguntas(){
   const wrap=document.getElementById('perguntasWrap');
   wrap.innerHTML=_editorState.map((q,i)=>{
-    const opcoesField=q.tipo==='multipla'
+    const opcoesField=(q.tipo==='multipla'||q.tipo==='ranking')
       ?`<div class="field" style="margin-top:8px"><label>Opções (separadas por vírgula)</label><input type="text" data-op="${i}" value="${esc((q.opcoes||[]).join(', '))}"></div>`
       :'';
     return `<div class="q-row">
@@ -489,6 +489,18 @@ function renderCampo(q,i){
   else if(q.tipo==='numero')campo=`<input type="number" id="campo_${q.id}">`;
   else if(q.tipo==='sim_nao')campo=`<select id="campo_${q.id}"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>`;
   else if(q.tipo==='multipla')campo=`<select id="campo_${q.id}"><option value="">Selecione</option>${(q.opcoes||[]).map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;
+  else if(q.tipo==='ranking'){
+    const opts=q.opcoes||[];
+    campo=`<div style="border:2px solid #e0e0e0;border-radius:8px;overflow:hidden">${opts.map((o,idx)=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;${idx<opts.length-1?'border-bottom:1px solid #eee':''}">
+        <span style="font-size:.9rem;color:#1a1a2e">${esc(o)}</span>
+        <select id="campo_${q.id}_${idx}" style="width:70px;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:.9rem;font-family:'Inter',sans-serif">
+          <option value="">–</option>
+          ${opts.map((_,n)=>`<option value="${n+1}">${n+1}</option>`).join('')}
+        </select>
+      </div>`).join('')}</div>
+      <div style="font-size:.75rem;color:#888;margin-top:6px">1 = o que você mais valoriza, ${opts.length} = o que menos valoriza. Não repita números.</div>`;
+  }
   else campo=`<input type="text" id="campo_${q.id}">`;
   return `<div class="form-field"><label>${i+1}. ${esc(q.texto)}${reqMark}</label>${campo}</div>`;
 }
@@ -498,6 +510,17 @@ async function submeterRespostas(){
   alerta.style.display='none';
   const respostas={};
   for(const q of (_prForm.perguntas||[])){
+    if(q.tipo==='ranking'){
+      const opts=q.opcoes||[];
+      const vals=opts.map((o,idx)=>({opcao:o,rank:(document.getElementById(`campo_${q.id}_${idx}`)||{}).value||''}));
+      const preenchidos=vals.filter(v=>v.rank);
+      if(q.obrigatoria&&preenchidos.length<opts.length){alerta.textContent='Complete o ranking de: '+q.texto;alerta.style.display='block';alerta.scrollIntoView({behavior:'smooth',block:'center'});return;}
+      const ranks=preenchidos.map(v=>v.rank);
+      if(new Set(ranks).size!==ranks.length){alerta.textContent='Não repita números no ranking: '+q.texto;alerta.style.display='block';alerta.scrollIntoView({behavior:'smooth',block:'center'});return;}
+      const ordenado=preenchidos.slice().sort((a,b)=>Number(a.rank)-Number(b.rank));
+      respostas[q.id]=ordenado.map(v=>`${v.rank}º - ${v.opcao}`).join('\n');
+      continue;
+    }
     const el=document.getElementById('campo_'+q.id);
     const val=el?el.value.trim():'';
     if(q.obrigatoria&&!val){alerta.textContent='Responda: '+q.texto;alerta.style.display='block';el.focus();el.scrollIntoView({behavior:'smooth',block:'center'});return;}
