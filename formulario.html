@@ -356,9 +356,17 @@ async function carregarLista(){
       <div class="f-card-actions">
         <button class="btn btn-outline btn-sm" onclick="copiarLink('${f.token}')">🔗 Copiar link</button>
         <button class="btn btn-outline btn-sm" onclick="abrirRespostas('${f.id}')">👁 Ver respostas</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirFormulario('${f.id}')">🗑️ Excluir</button>
       </div>
     </div>`;
   }).join('');
+}
+async function excluirFormulario(id){
+  if(!confirm('Excluir este formulário e todas as respostas dele? Essa ação não pode ser desfeita.'))return;
+  const{error}=await sb.from('cm_formularios').delete().eq('id',id);
+  if(error){toast('Erro ao excluir: '+error.message,'err');return;}
+  toast('Formulário excluído.','ok');
+  carregarLista();
 }
 
 /* ─────────────────────────────
