@@ -41,10 +41,19 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
 .topbar-user{display:flex;align-items:center;gap:12px;font-size:13px;opacity:.9}
 .topbar-user a,.topbar-user button{background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:'Inter',sans-serif;text-decoration:none}
 .main{flex:1;padding:24px;max-width:900px;width:100%;margin:0 auto}
+.main.main-wide{max-width:1400px}
 .page{display:none}.page.ativo{display:block}
 .page-title{font-family:'Poppins',sans-serif;font-size:22px;font-weight:800;color:#1a1a2e}
 .page-sub{color:#64748b;font-size:14px;margin-top:4px}
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:12px;flex-wrap:wrap}
+.painel-table-wrap{overflow-x:auto;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.painel-table{border-collapse:collapse;width:100%;font-size:12.5px;white-space:nowrap}
+.painel-table th,.painel-table td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+.painel-table thead th{background:#f0faf5;color:#1B5E20;position:sticky;top:0;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+.painel-table td:first-child,.painel-table th:first-child{position:sticky;left:0;background:#fff;z-index:1;font-weight:600}
+.painel-table thead th:first-child{background:#f0faf5;z-index:2}
+.painel-table tbody tr:nth-child(even) td{background:#fafbfc}
+.painel-table tbody tr:nth-child(even) td:first-child{background:#f5f6f8}
 
 /* ── CARDS ── */
 .f-card{background:#fff;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:14px}
@@ -180,6 +189,7 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
     </div>
     <div class="topbar-nav">
       <button class="nav-btn" onclick="irPara('lista')">📄 Formulários</button>
+      <button class="nav-btn" onclick="irPara('painel')">📊 Painel</button>
       <button class="nav-btn" onclick="irPara('novo')">➕ Novo Formulário</button>
     </div>
     <div class="topbar-user">
@@ -198,6 +208,15 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
         <button class="btn btn-primary" onclick="irPara('novo')">➕ Novo Formulário</button>
       </div>
       <div id="lista-wrap"><div class="loading-box"><div class="spin"></div>Carregando…</div></div>
+    </div>
+
+    <!-- PAINEL (tabela) -->
+    <div class="page" id="pg-painel">
+      <div class="page-header">
+        <div><div class="page-title">📊 Painel</div><div class="page-sub">Respostas objetivas lado a lado, por loja</div></div>
+        <button class="btn btn-outline" onclick="irPara('lista')">← Formulários</button>
+      </div>
+      <div id="painel-wrap"><div class="loading-box"><div class="spin"></div>Carregando…</div></div>
     </div>
 
     <!-- NOVO / EDITOR -->
@@ -330,11 +349,13 @@ function irPara(pag){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('ativo'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('ativo'));
   document.getElementById('pg-'+pag).classList.add('ativo');
-  const idx={lista:0,novo:1,respostas:2}[pag];
+  const idx={lista:0,painel:1,novo:2,respostas:3}[pag];
   const btns=document.querySelectorAll('.nav-btn');
   if(btns[idx])btns[idx].classList.add('ativo');
+  document.querySelector('.main').classList.toggle('main-wide',pag==='painel');
   if(pag==='lista')carregarLista();
   if(pag==='novo')abrirEditor();
+  if(pag==='painel')carregarPainel();
 }
 
 /* ─────────────────────────────
@@ -367,6 +388,46 @@ async function excluirFormulario(id){
   if(error){toast('Erro ao excluir: '+error.message,'err');return;}
   toast('Formulário excluído.','ok');
   carregarLista();
+}
+
+/* ─────────────────────────────
+   PAINEL (tabela lado a lado)
+───────────────────────────── */
+async function carregarPainel(){
+  const el=document.getElementById('painel-wrap');
+  el.innerHTML='<div class="loading-box"><div class="spin"></div>Carregando…</div>';
+  const{data:forms,error}=await sb.from('cm_formularios').select('*').eq('status','respondido').order('respondido_em',{ascending:false});
+  if(error){el.innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><p>Erro ao carregar: '+esc(error.message)+'</p></div>';return;}
+  if(!forms?.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>Ainda não há formulários respondidos.</p></div>';return;}
+  const ids=forms.map(f=>f.id);
+  const{data:resps}=await sb.from('cm_respostas').select('*').in('formulario_id',ids).order('created_at',{ascending:true});
+  const respMap={};
+  (resps||[]).forEach(r=>{respMap[r.formulario_id]=r;});
+
+  const colsOrder=[];const colsSet=new Set();
+  forms.forEach(f=>{
+    (f.perguntas||[]).forEach(q=>{
+      if(q.tipo==='longo')return;
+      if(!colsSet.has(q.texto)){colsSet.add(q.texto);colsOrder.push(q.texto);}
+    });
+  });
+
+  let html='<div class="painel-table-wrap"><table class="painel-table"><thead><tr><th>Loja / Contato</th>';
+  html+=colsOrder.map(c=>`<th>${esc(c)}</th>`).join('');
+  html+='<th>Ações</th></tr></thead><tbody>';
+  forms.forEach(f=>{
+    const r=respMap[f.id];
+    const idPorTexto={};(f.perguntas||[]).forEach(q=>{idPorTexto[q.texto]=q.id;});
+    html+=`<tr><td>${esc(f.destinatario_nome||f.titulo)}<br><span style="font-weight:400;color:#888;font-size:11px">${fmtData(f.respondido_em)}</span></td>`;
+    html+=colsOrder.map(texto=>{
+      const qid=idPorTexto[texto];
+      const val=(qid&&r&&r.respostas)?(r.respostas[qid]||''):'';
+      return `<td>${esc(val||'—')}</td>`;
+    }).join('');
+    html+=`<td><button class="btn btn-outline btn-sm" onclick="abrirRespostas('${f.id}')">👁 Detalhes</button></td></tr>`;
+  });
+  html+='</tbody></table></div>';
+  el.innerHTML=html;
 }
 
 /* ─────────────────────────────
