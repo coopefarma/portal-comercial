@@ -16,7 +16,7 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
 .btn-outline{background:#fff;color:#444;border:1.5px solid #ddd}.btn-outline:hover{border-color:#15a563;color:#15a563}
 .btn-sm{padding:6px 12px;font-size:12px}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
-.badge-verde{background:#d4edda;color:#155724}.badge-azul{background:#dbeafe;color:#1e40af}
+.badge-verde{background:#d4edda;color:#155724}.badge-azul{background:#dbeafe;color:#1e40af}.badge-amarelo{background:#fff3cd;color:#856404}
 
 /* ── LOGIN ── */
 #tela-login{display:none;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0d1b2a,#1b4332)}
@@ -211,6 +211,11 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
         <div><div class="page-title">📄 Formulários</div><div class="page-sub">Prospecção de novos associados</div></div>
         <button class="btn btn-primary" onclick="irPara('novo')">➕ Novo Formulário</button>
       </div>
+
+      <div style="font-family:'Poppins',sans-serif;font-weight:700;font-size:14px;color:#1B5E20;margin-bottom:10px">📁 Modelos salvos</div>
+      <div id="modelos-lista-wrap" style="margin-bottom:28px"><div class="loading-box"><div class="spin"></div>Carregando…</div></div>
+
+      <div style="font-family:'Poppins',sans-serif;font-weight:700;font-size:14px;color:#1B5E20;margin-bottom:10px">📄 Links enviados</div>
       <div id="lista-wrap"><div class="loading-box"><div class="spin"></div>Carregando…</div></div>
     </div>
 
@@ -368,7 +373,7 @@ function irPara(pag){
   const btns=document.querySelectorAll('.nav-btn');
   if(btns[idx])btns[idx].classList.add('ativo');
   document.querySelector('.main').classList.toggle('main-wide',pag==='painel');
-  if(pag==='lista')carregarLista();
+  if(pag==='lista'){carregarLista();carregarListaModelos();}
   if(pag==='novo')abrirEditor();
   if(pag==='painel')carregarPainel();
 }
@@ -396,6 +401,43 @@ async function carregarLista(){
       </div>
     </div>`;
   }).join('');
+}
+async function carregarListaModelos(){
+  const el=document.getElementById('modelos-lista-wrap');
+  el.innerHTML='<div class="loading-box"><div class="spin"></div>Carregando…</div>';
+  const{data,error}=await sb.from('cm_modelos').select('*').order('nome',{ascending:true});
+  if(error){el.innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><p>Erro ao carregar: '+esc(error.message)+'</p></div>';return;}
+  if(!data?.length){el.innerHTML='<div class="empty"><div class="empty-icon">📁</div><p>Nenhum modelo salvo ainda. Salve um no editor de "Novo Formulário".</p></div>';return;}
+  el.innerHTML=data.map(m=>{
+    return `<div class="f-card">
+      <div class="f-card-header">
+        <div class="f-card-nome">${esc(m.nome)} <span class="badge badge-amarelo">📁 Modelo</span></div>
+      </div>
+      <div class="f-card-meta">${(m.perguntas?.length||0)} pergunta(s) · salvo em ${fmtData(m.created_at)}</div>
+      <div class="f-card-actions">
+        <button class="btn btn-primary btn-sm" onclick="usarModeloParaNovo('${m.id}')">➕ Usar para novo formulário</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirModeloCard('${m.id}','${esc(m.nome).replace(/'/g,"\\'")}')">🗑️ Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function usarModeloParaNovo(id){
+  irPara('novo');
+  await carregarModelosSelect();
+  const modelo=_modelos.find(m=>m.id===id);
+  if(!modelo)return;
+  const sel=document.getElementById('modeloSelect');
+  if(sel)sel.value=id;
+  _editorState=JSON.parse(JSON.stringify(modelo.perguntas));
+  desenharPerguntas();
+  toast('Modelo carregado: '+modelo.nome,'ok');
+}
+async function excluirModeloCard(id,nome){
+  if(!confirm('Excluir o modelo "'+nome+'"? Isso não afeta formulários já criados com ele.'))return;
+  const{error}=await sb.from('cm_modelos').delete().eq('id',id);
+  if(error){toast('Erro ao excluir: '+error.message,'err');return;}
+  toast('Modelo excluído.','ok');
+  carregarListaModelos();
 }
 async function excluirFormulario(id){
   if(!confirm('Excluir este formulário e todas as respostas dele? Essa ação não pode ser desfeita.'))return;
