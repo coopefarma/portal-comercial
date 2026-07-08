@@ -73,8 +73,12 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
 .field textarea{min-height:60px;resize:vertical}
 
 /* ── EDITOR DE PERGUNTAS ── */
-.q-row{background:#fafbfc;border:1.5px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.q-row{background:#fafbfc;border:1.5px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;transition:opacity .15s,border-color .15s,background .15s}
+.q-row.dragging{opacity:.4}
+.q-row.drag-over{border-color:#15a563;background:#f0faf5}
 .q-row-top{display:flex;gap:10px;align-items:flex-start}
+.q-drag{cursor:grab;color:#aaa;font-size:16px;line-height:24px;flex:0 0 18px;text-align:center;user-select:none;margin-top:4px}
+.q-drag:active{cursor:grabbing}
 .q-num{background:#15a563;color:#fff;border-radius:50%;width:24px;height:24px;flex:0 0 24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-top:4px}
 .q-row-main{flex:1}
 .q-row-main textarea{width:100%;padding:8px 10px;border:1.5px solid #e0e0e0;border-radius:6px;font-family:'Inter',sans-serif;font-size:13px;resize:vertical}
@@ -277,7 +281,7 @@ const {createClient}=supabase;
 const sb=createClient(SB_URL,SB_KEY);
 const BASE=location.origin+location.pathname;
 
-const TIPOS={curto:'Texto curto',longo:'Texto longo',numero:'Número',sim_nao:'Sim / Não',multipla:'Múltipla escolha',ranking:'Ranking (numerar prioridade)'};
+const TIPOS={curto:'Texto curto',longo:'Texto longo',numero:'Número',sim_nao:'Sim / Não',sim_nao_qtd:'Sim / Não + quantidade (se Sim)',multipla:'Múltipla escolha',ranking:'Ranking (numerar prioridade)'};
 
 function defaultPerguntas(){
   const mk=(id,texto,tipo,extra)=>Object.assign({id,texto,tipo,obrigatoria:true,opcoes:[]},extra||{});
@@ -514,8 +518,12 @@ function desenharPerguntas(){
     const opcoesField=(q.tipo==='multipla'||q.tipo==='ranking')
       ?`<div class="field" style="margin-top:8px"><label>Opções (separadas por vírgula)</label><input type="text" data-op="${i}" value="${esc((q.opcoes||[]).join(', '))}"></div>`
       :'';
-    return `<div class="q-row">
+    const qtdLabelField=q.tipo==='sim_nao_qtd'
+      ?`<div class="field" style="margin-top:8px"><label>Texto do campo extra (aparece quando a resposta for "Sim")</label><input type="text" data-qtdlabel="${i}" value="${esc(q.qtdLabel||'Quantas?')}"></div>`
+      :'';
+    return `<div class="q-row" data-row="${i}">
       <div class="q-row-top">
+        <div class="q-drag" draggable="true" title="Arrastar para reordenar">⠿</div>
         <div class="q-num">${i+1}</div>
         <div class="q-row-main">
           <textarea data-texto="${i}" rows="2">${esc(q.texto)}</textarea>
@@ -527,6 +535,7 @@ function desenharPerguntas(){
             <button class="icon-btn" data-del="${i}" title="Remover">✕</button>
           </div>
           ${opcoesField}
+          ${qtdLabelField}
         </div>
       </div>
     </div>`;
@@ -535,9 +544,28 @@ function desenharPerguntas(){
   wrap.querySelectorAll('[data-tipo]').forEach(el=>el.addEventListener('change',e=>{_editorState[+e.target.dataset.tipo].tipo=e.target.value;desenharPerguntas();}));
   wrap.querySelectorAll('[data-obr]').forEach(el=>el.addEventListener('change',e=>_editorState[+e.target.dataset.obr].obrigatoria=e.target.checked));
   wrap.querySelectorAll('[data-op]').forEach(el=>el.addEventListener('input',e=>_editorState[+e.target.dataset.op].opcoes=e.target.value.split(',').map(s=>s.trim()).filter(Boolean)));
+  wrap.querySelectorAll('[data-qtdlabel]').forEach(el=>el.addEventListener('input',e=>_editorState[+e.target.dataset.qtdlabel].qtdLabel=e.target.value));
   wrap.querySelectorAll('[data-up]').forEach(el=>el.addEventListener('click',e=>{const i=+e.target.dataset.up;if(i>0){[_editorState[i-1],_editorState[i]]=[_editorState[i],_editorState[i-1]];desenharPerguntas();}}));
   wrap.querySelectorAll('[data-down]').forEach(el=>el.addEventListener('click',e=>{const i=+e.target.dataset.down;if(i<_editorState.length-1){[_editorState[i+1],_editorState[i]]=[_editorState[i],_editorState[i+1]];desenharPerguntas();}}));
   wrap.querySelectorAll('[data-del]').forEach(el=>el.addEventListener('click',e=>{_editorState.splice(+e.target.dataset.del,1);desenharPerguntas();}));
+
+  let _dragIdx=null;
+  wrap.querySelectorAll('.q-row').forEach(row=>{
+    const idx=+row.dataset.row;
+    const handle=row.querySelector('.q-drag');
+    handle.addEventListener('dragstart',e=>{_dragIdx=idx;row.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    handle.addEventListener('dragend',()=>{row.classList.remove('dragging');wrap.querySelectorAll('.q-row').forEach(r=>r.classList.remove('drag-over'));});
+    row.addEventListener('dragover',e=>{e.preventDefault();if(idx!==_dragIdx)row.classList.add('drag-over');});
+    row.addEventListener('dragleave',()=>{row.classList.remove('drag-over');});
+    row.addEventListener('drop',e=>{
+      e.preventDefault();row.classList.remove('drag-over');
+      if(_dragIdx===null||_dragIdx===idx)return;
+      const[item]=_editorState.splice(_dragIdx,1);
+      _editorState.splice(idx,0,item);
+      _dragIdx=null;
+      desenharPerguntas();
+    });
+  });
 }
 document.getElementById('addPergunta').addEventListener('click',()=>{
   _editorState.push({id:newId(),texto:'Nova pergunta',tipo:'curto',obrigatoria:false,opcoes:[]});
@@ -624,6 +652,13 @@ function renderCampo(q,i){
   if(q.tipo==='longo')campo=`<textarea id="campo_${q.id}"></textarea>`;
   else if(q.tipo==='numero')campo=`<input type="number" id="campo_${q.id}">`;
   else if(q.tipo==='sim_nao')campo=`<select id="campo_${q.id}"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>`;
+  else if(q.tipo==='sim_nao_qtd'){
+    campo=`<select id="campo_${q.id}" onchange="toggleQtd('${q.id}')"><option value="">Selecione</option><option>Sim</option><option>Não</option></select>
+      <div id="qtdwrap_${q.id}" style="display:none;margin-top:10px">
+        <label style="display:block;font-size:.78rem;font-weight:700;color:#444;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">${esc(q.qtdLabel||'Quantas?')}</label>
+        <input type="number" id="campo_${q.id}_qtd" min="0">
+      </div>`;
+  }
   else if(q.tipo==='multipla')campo=`<select id="campo_${q.id}"><option value="">Selecione</option>${(q.opcoes||[]).map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;
   else if(q.tipo==='ranking'){
     const opts=q.opcoes||[];
@@ -640,6 +675,13 @@ function renderCampo(q,i){
   else campo=`<input type="text" id="campo_${q.id}">`;
   return `<div class="form-field"><label>${i+1}. ${esc(q.texto)}${reqMark}</label>${campo}</div>`;
 }
+function toggleQtd(qid){
+  const sel=document.getElementById('campo_'+qid);
+  const wrap=document.getElementById('qtdwrap_'+qid);
+  if(!sel||!wrap)return;
+  if(sel.value==='Sim'){wrap.style.display='block';}
+  else{wrap.style.display='none';const qtdEl=document.getElementById('campo_'+qid+'_qtd');if(qtdEl)qtdEl.value='';}
+}
 async function submeterRespostas(){
   if(!_prForm)return;
   const alerta=document.getElementById('pr-alerta');
@@ -655,6 +697,20 @@ async function submeterRespostas(){
       if(new Set(ranks).size!==ranks.length){alerta.textContent='Não repita números no ranking: '+q.texto;alerta.style.display='block';alerta.scrollIntoView({behavior:'smooth',block:'center'});return;}
       const ordenado=preenchidos.slice().sort((a,b)=>Number(a.rank)-Number(b.rank));
       respostas[q.id]=ordenado.map(v=>`${v.rank}º - ${v.opcao}`).join('\n');
+      continue;
+    }
+    if(q.tipo==='sim_nao_qtd'){
+      const sel=document.getElementById('campo_'+q.id);
+      const val=sel?sel.value:'';
+      if(q.obrigatoria&&!val){alerta.textContent='Responda: '+q.texto;alerta.style.display='block';sel.focus();sel.scrollIntoView({behavior:'smooth',block:'center'});return;}
+      if(val==='Sim'){
+        const qtdEl=document.getElementById('campo_'+q.id+'_qtd');
+        const qtd=qtdEl?qtdEl.value.trim():'';
+        if(!qtd){alerta.textContent='Informe "'+(q.qtdLabel||'Quantas?')+'" em: '+q.texto;alerta.style.display='block';qtdEl.focus();qtdEl.scrollIntoView({behavior:'smooth',block:'center'});return;}
+        respostas[q.id]=`Sim (${qtd})`;
+      }else{
+        respostas[q.id]=val;
+      }
       continue;
     }
     const el=document.getElementById('campo_'+q.id);
