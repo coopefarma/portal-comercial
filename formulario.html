@@ -233,6 +233,17 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
       </div>
 
       <div class="form-section">
+        <h3>📁 Modelos de perguntas</h3>
+        <div class="page-sub" style="margin:-8px 0 14px">Carregue um conjunto de perguntas pronto, ou salve o atual como um novo modelo (ex.: "Completo — 30 perguntas", "Resumido — 6 perguntas")</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <select id="modeloSelect" style="flex:1;min-width:220px;padding:10px 14px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:'Inter',sans-serif"></select>
+          <button class="btn btn-outline btn-sm" onclick="carregarModeloSelecionado()">📂 Carregar</button>
+          <button class="btn btn-outline btn-sm" onclick="salvarComoModelo()">💾 Salvar como modelo</button>
+          <button class="btn btn-danger btn-sm" onclick="excluirModeloSelecionado()">🗑️ Excluir modelo</button>
+        </div>
+      </div>
+
+      <div class="form-section">
         <h3>❓ Perguntas</h3>
         <div id="perguntasWrap"></div>
         <button class="btn btn-outline" id="addPergunta">+ Adicionar pergunta</button>
@@ -440,6 +451,62 @@ function abrirEditor(){
   document.getElementById('resultadoSalvar').innerHTML='';
   _editorState=defaultPerguntas();
   desenharPerguntas();
+  carregarModelosSelect();
+}
+
+/* ─────────────────────────────
+   MODELOS DE PERGUNTAS
+───────────────────────────── */
+let _modelos=[];
+async function carregarModelosSelect(){
+  const sel=document.getElementById('modeloSelect');
+  sel.innerHTML='<option value="">Modelo padrão (30 perguntas)</option>';
+  const{data,error}=await sb.from('cm_modelos').select('*').order('nome',{ascending:true});
+  if(error||!data)return;
+  _modelos=data;
+  data.forEach(m=>{
+    const opt=document.createElement('option');
+    opt.value=m.id;opt.textContent=m.nome+' ('+(m.perguntas?.length||0)+' perguntas)';
+    sel.appendChild(opt);
+  });
+}
+function carregarModeloSelecionado(){
+  const sel=document.getElementById('modeloSelect');
+  const val=sel.value;
+  if(!val){
+    if(!confirm('Substituir as perguntas atuais do editor pelo modelo padrão (30 perguntas)?'))return;
+    _editorState=defaultPerguntas();
+    desenharPerguntas();
+    toast('Modelo padrão carregado.','ok');
+    return;
+  }
+  const modelo=_modelos.find(m=>m.id===val);
+  if(!modelo)return;
+  if(!confirm('Substituir as perguntas atuais do editor pelas do modelo "'+modelo.nome+'"?'))return;
+  _editorState=JSON.parse(JSON.stringify(modelo.perguntas));
+  desenharPerguntas();
+  toast('Modelo carregado.','ok');
+}
+async function salvarComoModelo(){
+  const nome=prompt('Nome para este modelo (ex.: "Resumido — 6 perguntas"):');
+  if(!nome)return;
+  const perguntas=_editorState.filter(q=>q.texto.trim());
+  if(!perguntas.length){toast('Adicione ao menos uma pergunta antes de salvar como modelo.','err');return;}
+  const{error}=await sb.from('cm_modelos').insert({nome,perguntas});
+  if(error){toast('Erro ao salvar modelo: '+error.message,'err');return;}
+  toast('Modelo salvo!','ok');
+  carregarModelosSelect();
+}
+async function excluirModeloSelecionado(){
+  const sel=document.getElementById('modeloSelect');
+  const val=sel.value;
+  if(!val){toast('Selecione um modelo salvo para excluir (o padrão não pode ser excluído).','err');return;}
+  const modelo=_modelos.find(m=>m.id===val);
+  if(!confirm('Excluir o modelo "'+(modelo?.nome||'')+'"? Isso não afeta formulários já criados com ele.'))return;
+  const{error}=await sb.from('cm_modelos').delete().eq('id',val);
+  if(error){toast('Erro ao excluir: '+error.message,'err');return;}
+  toast('Modelo excluído.','ok');
+  carregarModelosSelect();
 }
 function desenharPerguntas(){
   const wrap=document.getElementById('perguntasWrap');
