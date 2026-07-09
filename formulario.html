@@ -54,6 +54,11 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
 .painel-table thead th:first-child{background:#f0faf5;z-index:2}
 .painel-table tbody tr:nth-child(even) td{background:#fafbfc}
 .painel-table tbody tr:nth-child(even) td:first-child{background:#f5f6f8}
+.resp-compare{border-collapse:collapse;width:100%;font-size:12.5px}
+.resp-compare th,.resp-compare td{border:1px solid #e2e8f0;padding:10px 12px;text-align:left;vertical-align:top;white-space:normal;word-break:break-word}
+.resp-compare thead th{background:#f0faf5;color:#1B5E20;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+.resp-compare td:first-child,.resp-compare th:first-child{background:#fafbfc;font-weight:600;min-width:220px;max-width:260px}
+.resp-compare td:not(:first-child),.resp-compare th:not(:first-child){min-width:180px}
 
 /* ── CARDS ── */
 .f-card{background:#fff;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:14px}
@@ -464,13 +469,13 @@ async function excluirFormulario(id){
 async function carregarPainel(){
   const el=document.getElementById('painel-wrap');
   el.innerHTML='<div class="loading-box"><div class="spin"></div>Carregando…</div>';
-  const{data:forms,error}=await sb.from('cm_formularios').select('*').eq('status','respondido').order('respondido_em',{ascending:false});
+  const{data:forms,error}=await sb.from('cm_formularios').select('*').eq('status','respondido');
   if(error){el.innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><p>Erro ao carregar: '+esc(error.message)+'</p></div>';return;}
   if(!forms?.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>Ainda não há formulários respondidos.</p></div>';return;}
   const ids=forms.map(f=>f.id);
-  const{data:resps}=await sb.from('cm_respostas').select('*').in('formulario_id',ids).order('created_at',{ascending:true});
-  const respMap={};
-  (resps||[]).forEach(r=>{respMap[r.formulario_id]=r;});
+  const formMap={};forms.forEach(f=>{formMap[f.id]=f;});
+  const{data:resps,error:e2}=await sb.from('cm_respostas').select('*').in('formulario_id',ids).order('created_at',{ascending:false});
+  if(e2||!resps?.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>Ainda não há respostas.</p></div>';return;}
 
   const colsOrder=[];const colsSet=new Set();
   forms.forEach(f=>{
@@ -480,16 +485,17 @@ async function carregarPainel(){
     });
   });
 
-  let html='<div class="painel-table-wrap"><table class="painel-table"><thead><tr><th>Loja / Contato</th>';
+  let html='<div class="painel-table-wrap"><table class="painel-table"><thead><tr><th>Loja / Contato</th><th>Respondido em</th>';
   html+=colsOrder.map(c=>`<th>${esc(c)}</th>`).join('');
   html+='<th>Ações</th></tr></thead><tbody>';
-  forms.forEach(f=>{
-    const r=respMap[f.id];
+  resps.forEach(r=>{
+    const f=formMap[r.formulario_id];
+    if(!f)return;
     const idPorTexto={};(f.perguntas||[]).forEach(q=>{idPorTexto[q.texto]=q.id;});
-    html+=`<tr><td>${esc(f.destinatario_nome||f.titulo)}<br><span style="font-weight:400;color:#888;font-size:11px">${fmtData(f.respondido_em)}</span></td>`;
+    html+=`<tr><td>${esc(f.destinatario_nome||f.titulo)}</td><td>${fmtData(r.created_at)}</td>`;
     html+=colsOrder.map(texto=>{
       const qid=idPorTexto[texto];
-      const val=(qid&&r&&r.respostas)?(r.respostas[qid]||''):'';
+      const val=(qid&&r.respostas)?(r.respostas[qid]||''):'';
       return `<td>${esc(val||'—')}</td>`;
     }).join('');
     html+=`<td><button class="btn btn-outline btn-sm" onclick="abrirRespostas('${f.id}')">👁 Detalhes</button></td></tr>`;
@@ -654,11 +660,10 @@ async function abrirRespostas(id){
   wrap.innerHTML='<div class="loading-box"><div class="spin"></div>Carregando…</div>';
   const[{data:form,error:e1},{data:resps,error:e2}]=await Promise.all([
     sb.from('cm_formularios').select('*').eq('id',id).single(),
-    sb.from('cm_respostas').select('*').eq('formulario_id',id).order('created_at',{ascending:false})
+    sb.from('cm_respostas').select('*').eq('formulario_id',id).order('created_at',{ascending:true})
   ]);
   if(e1||!form){wrap.innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><p>Formulário não encontrado.</p></div>';return;}
-  const perguntasPorId={};
-  (form.perguntas||[]).forEach(q=>perguntasPorId[q.id]=q.texto);
+  const perguntas=form.perguntas||[];
   let html=`<div class="f-card">
     <div class="f-card-nome">${esc(form.destinatario_nome||form.titulo)}</div>
     <div class="f-card-meta">${esc(form.titulo)} · criado em ${fmtData(form.created_at)}</div>
@@ -668,12 +673,14 @@ async function abrirRespostas(id){
   if(e2||!resps?.length){
     html+='<div class="empty"><div class="empty-icon">📭</div><p>Ainda não há respostas para este formulário.</p></div>';
   }else{
-    html+=resps.map(r=>{
-      const qas=Object.entries(r.respostas||{}).map(([qid,val])=>
-        `<div class="qa"><div class="q">${esc(perguntasPorId[qid]||qid)}</div><div class="a">${esc(val||'—')}</div></div>`
-      ).join('');
-      return `<div class="f-card"><div class="f-card-meta">Respondido em ${fmtData(r.created_at)}</div>${qas}</div>`;
+    html+='<div class="painel-table-wrap" style="margin-top:16px"><table class="resp-compare"><thead><tr><th>Pergunta</th>';
+    html+=resps.map((r,idx)=>`<th>Preenchimento ${idx+1}<br><span style="font-weight:400;text-transform:none;font-size:10px;color:#888">${fmtData(r.created_at)}</span></th>`).join('');
+    html+='</tr></thead><tbody>';
+    html+=perguntas.map(q=>{
+      const cells=resps.map(r=>`<td>${esc((r.respostas||{})[q.id]||'—')}</td>`).join('');
+      return `<tr><td>${esc(q.texto)}</td>${cells}</tr>`;
     }).join('');
+    html+='</tbody></table></div>';
   }
   wrap.innerHTML=html;
 }
