@@ -397,6 +397,7 @@ async function carregarLista(){
       <div class="f-card-actions">
         <button class="btn btn-outline btn-sm" onclick="copiarLink('${f.token}')">🔗 Copiar link</button>
         <button class="btn btn-outline btn-sm" onclick="abrirRespostas('${f.id}')">👁 Ver respostas</button>
+        <button class="btn btn-outline btn-sm" onclick="salvarLinkComoModelo('${f.id}')">💾 Salvar como modelo</button>
         <button class="btn btn-danger btn-sm" onclick="excluirFormulario('${f.id}')">🗑️ Excluir</button>
       </div>
     </div>`;
@@ -437,6 +438,16 @@ async function excluirModeloCard(id,nome){
   const{error}=await sb.from('cm_modelos').delete().eq('id',id);
   if(error){toast('Erro ao excluir: '+error.message,'err');return;}
   toast('Modelo excluído.','ok');
+  carregarListaModelos();
+}
+async function salvarLinkComoModelo(id){
+  const{data:form,error}=await sb.from('cm_formularios').select('titulo,perguntas').eq('id',id).single();
+  if(error||!form){toast('Erro ao buscar as perguntas deste link.','err');return;}
+  const nome=prompt('Nome para o modelo:',form.titulo);
+  if(!nome)return;
+  const{error:err2}=await sb.from('cm_modelos').insert({nome,perguntas:form.perguntas});
+  if(err2){toast('Erro ao salvar modelo: '+err2.message,'err');return;}
+  toast('Modelo salvo a partir deste link!','ok');
   carregarListaModelos();
 }
 async function excluirFormulario(id){
@@ -603,7 +614,8 @@ function desenharPerguntas(){
       e.preventDefault();row.classList.remove('drag-over');
       if(_dragIdx===null||_dragIdx===idx)return;
       const[item]=_editorState.splice(_dragIdx,1);
-      _editorState.splice(idx,0,item);
+      const insertAt=_dragIdx<idx?idx-1:idx;
+      _editorState.splice(insertAt,0,item);
       _dragIdx=null;
       desenharPerguntas();
     });
