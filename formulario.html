@@ -691,12 +691,6 @@ async function initPreench(token){
   }
   _prForm=form;
   document.title=form.titulo+' — Coopefarma';
-  if(form.status==='respondido'){
-    document.getElementById('pr-main').style.display='none';
-    document.getElementById('pr-sucesso').style.display='block';
-    document.getElementById('pr-sucesso').querySelector('p').textContent='Este formulário já foi respondido. Obrigado pelo contato — a equipe Coopefarma vai entrar em contato em breve.';
-    return;
-  }
   const perguntas=form.perguntas||[];
   document.getElementById('pr-card-perguntas').innerHTML='<h2>📋 Perguntas</h2>'+perguntas.map((q,i)=>renderCampo(q,i)).join('');
 }
