@@ -504,10 +504,25 @@ async function carregarPainel(){
       const val=(qid&&r.respostas)?(r.respostas[qid]||''):'';
       return `<td>${esc(val||'—')}</td>`;
     }).join('');
-    html+=`<td><button class="btn btn-outline btn-sm" onclick="abrirRespostas('${f.id}')">👁 Detalhes</button></td></tr>`;
+    html+=`<td style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="abrirRespostas('${f.id}')">👁 Detalhes</button> <button class="btn btn-danger btn-sm" onclick="excluirRespostaPainel('${r.id}','${f.id}')">🗑️</button></td></tr>`;
   });
   html+='</tbody></table></div>';
   el.innerHTML=html;
+}
+async function _deletarResposta(id,formularioId){
+  const{error}=await sb.from('cm_respostas').delete().eq('id',id);
+  if(error){toast('Erro ao excluir: '+error.message,'err');return false;}
+  const{count}=await sb.from('cm_respostas').select('id',{count:'exact',head:true}).eq('formulario_id',formularioId);
+  if(!count){await sb.from('cm_formularios').update({status:'aberto',respondido_em:null}).eq('id',formularioId);}
+  return true;
+}
+async function excluirRespostaPainel(id,formularioId){
+  if(!confirm('Excluir esta resposta? Essa ação não pode ser desfeita.'))return;
+  if(await _deletarResposta(id,formularioId)){toast('Resposta excluída.','ok');carregarPainel();}
+}
+async function excluirRespostaDetalhe(id,formularioId){
+  if(!confirm('Excluir este preenchimento? Essa ação não pode ser desfeita.'))return;
+  if(await _deletarResposta(id,formularioId)){toast('Preenchimento excluído.','ok');abrirRespostas(formularioId);}
 }
 
 /* ─────────────────────────────
@@ -702,7 +717,7 @@ async function abrirRespostas(id){
     html+='<div class="empty"><div class="empty-icon">📭</div><p>Ainda não há respostas para este formulário.</p></div>';
   }else{
     html+='<div class="painel-table-wrap" style="margin-top:16px"><table class="resp-compare"><thead><tr><th>Pergunta</th>';
-    html+=resps.map((r,idx)=>`<th>Preenchimento ${idx+1}<br><span style="font-weight:400;text-transform:none;font-size:10px;color:#888">${fmtData(r.created_at)}</span></th>`).join('');
+    html+=resps.map((r,idx)=>`<th>Preenchimento ${idx+1}<br><span style="font-weight:400;text-transform:none;font-size:10px;color:#888">${fmtData(r.created_at)}</span><br><button class="btn btn-danger btn-sm no-print" style="margin-top:6px;padding:3px 8px;font-size:10px" onclick="excluirRespostaDetalhe('${r.id}','${form.id}')">🗑️ Excluir</button></th>`).join('');
     html+='</tr></thead><tbody>';
     html+=perguntas.map(q=>{
       const cells=resps.map(r=>`<td>${esc((r.respostas||{})[q.id]||'—')}</td>`).join('');
