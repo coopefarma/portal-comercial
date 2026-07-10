@@ -475,7 +475,7 @@ async function excluirFormulario(id){
 async function carregarPainel(){
   const el=document.getElementById('painel-wrap');
   el.innerHTML='<div class="loading-box"><div class="spin"></div>Carregando…</div>';
-  const{data:forms,error}=await sb.from('cm_formularios').select('*').eq('status','respondido');
+  const{data:forms,error}=await sb.from('cm_formularios').select('*').eq('status','respondido').order('created_at',{ascending:true});
   if(error){el.innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><p>Erro ao carregar: '+esc(error.message)+'</p></div>';return;}
   if(!forms?.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>Ainda não há formulários respondidos.</p></div>';return;}
   const ids=forms.map(f=>f.id);
@@ -483,25 +483,25 @@ async function carregarPainel(){
   const{data:resps,error:e2}=await sb.from('cm_respostas').select('*').in('formulario_id',ids).order('created_at',{ascending:false});
   if(e2||!resps?.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>Ainda não há respostas.</p></div>';return;}
 
-  const colsOrder=[];const colsSet=new Set();
+  // colunas identificadas pelo ID da pergunta (estável), não pelo texto (que pode mudar quando o modelo é editado)
+  const colIds=[];const colSeen=new Set();const textoPorId={};
   forms.forEach(f=>{
     (f.perguntas||[]).forEach(q=>{
       if(q.tipo==='longo')return;
-      if(!colsSet.has(q.texto)){colsSet.add(q.texto);colsOrder.push(q.texto);}
+      if(!colSeen.has(q.id)){colSeen.add(q.id);colIds.push(q.id);}
+      textoPorId[q.id]=q.texto;
     });
   });
 
   let html='<div class="painel-table-wrap"><table class="painel-table"><thead><tr><th>Loja / Contato</th><th>Respondido em</th>';
-  html+=colsOrder.map(c=>`<th>${esc(c)}</th>`).join('');
+  html+=colIds.map(qid=>`<th>${esc(textoPorId[qid])}</th>`).join('');
   html+='<th>Ações</th></tr></thead><tbody>';
   resps.forEach(r=>{
     const f=formMap[r.formulario_id];
     if(!f)return;
-    const idPorTexto={};(f.perguntas||[]).forEach(q=>{idPorTexto[q.texto]=q.id;});
     html+=`<tr><td>${esc(f.destinatario_nome||f.titulo)}</td><td>${fmtData(r.created_at)}</td>`;
-    html+=colsOrder.map(texto=>{
-      const qid=idPorTexto[texto];
-      const val=(qid&&r.respostas)?(r.respostas[qid]||''):'';
+    html+=colIds.map(qid=>{
+      const val=(r.respostas||{})[qid];
       return `<td>${esc(val||'—')}</td>`;
     }).join('');
     html+=`<td style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="abrirRespostas('${f.id}')">👁 Detalhes</button> <button class="btn btn-danger btn-sm" onclick="excluirRespostaPainel('${r.id}','${f.id}')">🗑️</button></td></tr>`;
