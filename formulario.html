@@ -252,7 +252,8 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <select id="modeloSelect" style="flex:1;min-width:220px;padding:10px 14px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:'Inter',sans-serif"></select>
           <button class="btn btn-outline btn-sm" onclick="carregarModeloSelecionado()">📂 Carregar</button>
-          <button class="btn btn-outline btn-sm" onclick="salvarComoModelo()">💾 Salvar como modelo</button>
+          <button class="btn btn-outline btn-sm" onclick="atualizarModeloAtual()">🔄 Atualizar modelo carregado</button>
+          <button class="btn btn-outline btn-sm" onclick="salvarComoModelo()">💾 Salvar como novo modelo</button>
           <button class="btn btn-danger btn-sm" onclick="excluirModeloSelecionado()">🗑️ Excluir modelo</button>
         </div>
       </div>
@@ -435,6 +436,7 @@ async function usarModeloParaNovo(id){
   const sel=document.getElementById('modeloSelect');
   if(sel)sel.value=id;
   _editorState=JSON.parse(JSON.stringify(modelo.perguntas));
+  _modeloAtualId=modelo.id;
   desenharPerguntas();
   toast('Modelo carregado: '+modelo.nome,'ok');
 }
@@ -513,6 +515,7 @@ function abrirEditor(){
   document.getElementById('n-dest').value='';
   document.getElementById('resultadoSalvar').innerHTML='';
   _editorState=defaultPerguntas();
+  _modeloAtualId=null;
   desenharPerguntas();
   carregarModelosSelect();
 }
@@ -521,6 +524,7 @@ function abrirEditor(){
    MODELOS DE PERGUNTAS
 ───────────────────────────── */
 let _modelos=[];
+let _modeloAtualId=null;
 async function carregarModelosSelect(){
   const sel=document.getElementById('modeloSelect');
   sel.innerHTML='<option value="">Modelo padrão (30 perguntas)</option>';
@@ -539,6 +543,7 @@ function carregarModeloSelecionado(){
   if(!val){
     if(!confirm('Substituir as perguntas atuais do editor pelo modelo padrão (30 perguntas)?'))return;
     _editorState=defaultPerguntas();
+    _modeloAtualId=null;
     desenharPerguntas();
     toast('Modelo padrão carregado.','ok');
     return;
@@ -547,6 +552,7 @@ function carregarModeloSelecionado(){
   if(!modelo)return;
   if(!confirm('Substituir as perguntas atuais do editor pelas do modelo "'+modelo.nome+'"?'))return;
   _editorState=JSON.parse(JSON.stringify(modelo.perguntas));
+  _modeloAtualId=modelo.id;
   desenharPerguntas();
   toast('Modelo carregado.','ok');
 }
@@ -555,9 +561,23 @@ async function salvarComoModelo(){
   if(!nome)return;
   const perguntas=_editorState.filter(q=>q.texto.trim());
   if(!perguntas.length){toast('Adicione ao menos uma pergunta antes de salvar como modelo.','err');return;}
-  const{error}=await sb.from('cm_modelos').insert({nome,perguntas});
+  const{data,error}=await sb.from('cm_modelos').insert({nome,perguntas}).select().single();
   if(error){toast('Erro ao salvar modelo: '+error.message,'err');return;}
   toast('Modelo salvo!','ok');
+  _modeloAtualId=data?.id||null;
+  await carregarModelosSelect();
+  const sel=document.getElementById('modeloSelect');
+  if(sel&&_modeloAtualId)sel.value=_modeloAtualId;
+}
+async function atualizarModeloAtual(){
+  if(!_modeloAtualId){toast('Nenhum modelo carregado. Use "Carregar" para escolher um, ou "Salvar como novo modelo".','err');return;}
+  const modelo=_modelos.find(m=>m.id===_modeloAtualId);
+  const perguntas=_editorState.filter(q=>q.texto.trim());
+  if(!perguntas.length){toast('Adicione ao menos uma pergunta.','err');return;}
+  if(!confirm('Atualizar o modelo "'+(modelo?.nome||'')+'" com as perguntas atuais? Isso não afeta links já enviados.'))return;
+  const{error}=await sb.from('cm_modelos').update({perguntas}).eq('id',_modeloAtualId);
+  if(error){toast('Erro ao atualizar: '+error.message,'err');return;}
+  toast('Modelo atualizado!','ok');
   carregarModelosSelect();
 }
 async function excluirModeloSelecionado(){
