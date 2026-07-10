@@ -412,18 +412,20 @@ async function carregarLista(){
 async function carregarListaModelos(){
   const el=document.getElementById('modelos-lista-wrap');
   el.innerHTML='<div class="loading-box"><div class="spin"></div>Carregando…</div>';
-  const{data,error}=await sb.from('cm_modelos').select('*').order('nome',{ascending:true});
+  const{data,error}=await sb.from('cm_modelos').select('*').order('padrao',{ascending:false}).order('nome',{ascending:true});
   if(error){el.innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><p>Erro ao carregar: '+esc(error.message)+'</p></div>';return;}
-  if(!data?.length){el.innerHTML='<div class="empty"><div class="empty-icon">📁</div><p>Nenhum modelo salvo ainda. Salve um no editor de "Novo Formulário".</p></div>';return;}
+  if(!data?.length){el.innerHTML='<div class="empty"><div class="empty-icon">📁</div><p>Nenhum modelo salvo ainda.</p></div>';return;}
   el.innerHTML=data.map(m=>{
+    const badge=m.padrao?'<span class="badge badge-amarelo">⭐ Modelo padrão</span>':'<span class="badge badge-amarelo">📁 Modelo</span>';
+    const excluirBtn=m.padrao?'':`<button class="btn btn-danger btn-sm" onclick="excluirModeloCard('${m.id}','${esc(m.nome).replace(/'/g,"\\'")}')">🗑️ Excluir</button>`;
     return `<div class="f-card">
       <div class="f-card-header">
-        <div class="f-card-nome">${esc(m.nome)} <span class="badge badge-amarelo">📁 Modelo</span></div>
+        <div class="f-card-nome">${esc(m.nome)} ${badge}</div>
       </div>
       <div class="f-card-meta">${(m.perguntas?.length||0)} pergunta(s) · salvo em ${fmtData(m.created_at)}</div>
       <div class="f-card-actions">
-        <button class="btn btn-primary btn-sm" onclick="usarModeloParaNovo('${m.id}')">➕ Usar para novo formulário</button>
-        <button class="btn btn-danger btn-sm" onclick="excluirModeloCard('${m.id}','${esc(m.nome).replace(/'/g,"\\'")}')">🗑️ Excluir</button>
+        <button class="btn btn-primary btn-sm" onclick="usarModeloParaNovo('${m.id}')">✏️ Abrir/editar</button>
+        ${excluirBtn}
       </div>
     </div>`;
   }).join('');
@@ -441,6 +443,8 @@ async function usarModeloParaNovo(id){
   toast('Modelo carregado: '+modelo.nome,'ok');
 }
 async function excluirModeloCard(id,nome){
+  const{data:m}=await sb.from('cm_modelos').select('padrao').eq('id',id).single();
+  if(m?.padrao){toast('O modelo padrão não pode ser excluído — mas pode ser editado e atualizado normalmente.','err');return;}
   if(!confirm('Excluir o modelo "'+nome+'"? Isso não afeta formulários já criados com ele.'))return;
   const{error}=await sb.from('cm_modelos').delete().eq('id',id);
   if(error){toast('Erro ao excluir: '+error.message,'err');return;}
@@ -510,14 +514,17 @@ async function carregarPainel(){
    EDITOR
 ───────────────────────────── */
 let _editorState=[];
-function abrirEditor(){
+async function abrirEditor(){
   document.getElementById('n-titulo').value='Questionário Comercial — Prospecção de Associados';
   document.getElementById('n-dest').value='';
   document.getElementById('resultadoSalvar').innerHTML='';
-  _editorState=defaultPerguntas();
-  _modeloAtualId=null;
+  const padrao=await garantirModeloPadrao();
+  _editorState=padrao?JSON.parse(JSON.stringify(padrao.perguntas)):defaultPerguntas();
+  _modeloAtualId=padrao?padrao.id:null;
   desenharPerguntas();
-  carregarModelosSelect();
+  await carregarModelosSelect();
+  const sel=document.getElementById('modeloSelect');
+  if(sel&&_modeloAtualId)sel.value=_modeloAtualId;
 }
 
 /* ─────────────────────────────
@@ -525,29 +532,29 @@ function abrirEditor(){
 ───────────────────────────── */
 let _modelos=[];
 let _modeloAtualId=null;
+async function garantirModeloPadrao(){
+  const{data:existente}=await sb.from('cm_modelos').select('*').eq('padrao',true).limit(1);
+  if(existente&&existente.length)return existente[0];
+  const{data,error}=await sb.from('cm_modelos').insert({nome:'Modelo padrão — 30 perguntas',perguntas:defaultPerguntas(),padrao:true}).select().single();
+  if(error)return null;
+  return data;
+}
 async function carregarModelosSelect(){
   const sel=document.getElementById('modeloSelect');
-  sel.innerHTML='<option value="">Modelo padrão (30 perguntas)</option>';
-  const{data,error}=await sb.from('cm_modelos').select('*').order('nome',{ascending:true});
+  sel.innerHTML='<option value="">Selecione um modelo…</option>';
+  const{data,error}=await sb.from('cm_modelos').select('*').order('padrao',{ascending:false}).order('nome',{ascending:true});
   if(error||!data)return;
   _modelos=data;
   data.forEach(m=>{
     const opt=document.createElement('option');
-    opt.value=m.id;opt.textContent=m.nome+' ('+(m.perguntas?.length||0)+' perguntas)';
+    opt.value=m.id;opt.textContent=(m.padrao?'⭐ ':'')+m.nome+' ('+(m.perguntas?.length||0)+' perguntas)';
     sel.appendChild(opt);
   });
 }
 function carregarModeloSelecionado(){
   const sel=document.getElementById('modeloSelect');
   const val=sel.value;
-  if(!val){
-    if(!confirm('Substituir as perguntas atuais do editor pelo modelo padrão (30 perguntas)?'))return;
-    _editorState=defaultPerguntas();
-    _modeloAtualId=null;
-    desenharPerguntas();
-    toast('Modelo padrão carregado.','ok');
-    return;
-  }
+  if(!val){toast('Selecione um modelo na lista.','err');return;}
   const modelo=_modelos.find(m=>m.id===val);
   if(!modelo)return;
   if(!confirm('Substituir as perguntas atuais do editor pelas do modelo "'+modelo.nome+'"?'))return;
@@ -583,8 +590,9 @@ async function atualizarModeloAtual(){
 async function excluirModeloSelecionado(){
   const sel=document.getElementById('modeloSelect');
   const val=sel.value;
-  if(!val){toast('Selecione um modelo salvo para excluir (o padrão não pode ser excluído).','err');return;}
+  if(!val){toast('Selecione um modelo salvo para excluir.','err');return;}
   const modelo=_modelos.find(m=>m.id===val);
+  if(modelo?.padrao){toast('O modelo padrão não pode ser excluído — mas pode ser editado e atualizado normalmente.','err');return;}
   if(!confirm('Excluir o modelo "'+(modelo?.nome||'')+'"? Isso não afeta formulários já criados com ele.'))return;
   const{error}=await sb.from('cm_modelos').delete().eq('id',val);
   if(error){toast('Erro ao excluir: '+error.message,'err');return;}
