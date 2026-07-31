@@ -447,6 +447,59 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
   </div>
 </div>
 
+<!-- Modal: editar pedido de um associado -->
+<div id="modal-ped" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;max-width:900px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="padding:20px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div>
+        <div style="font-family:Poppins,sans-serif;font-size:17px;font-weight:700">✏️ Editar pedido</div>
+        <div id="mp-sub" style="font-size:12px;color:#64748b;margin-top:2px">—</div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="fecharModalPedido()">✕ Fechar</button>
+    </div>
+
+    <div style="padding:20px 24px;overflow-y:auto;flex:1">
+      <div class="input-row">
+        <div class="field" style="flex:2"><label>Razão Social</label><input type="text" id="mp-razao"/></div>
+        <div class="field" style="flex:1"><label>CNPJ</label><input type="text" id="mp-cnpj"/></div>
+      </div>
+
+      <div style="font-size:12px;color:#64748b;margin:16px 0 8px">
+        Ajuste as quantidades ou remova itens. Zerar a quantidade também remove o item ao salvar.
+      </div>
+
+      <div style="overflow-x:auto;border-radius:8px;border:1px solid #e2e8f0">
+        <table class="prod-table">
+          <thead><tr><th>Produto</th><th>EAN</th><th style="text-align:right">Valor Unit.</th><th style="text-align:center">Quantidade</th><th style="text-align:right">Subtotal</th><th></th></tr></thead>
+          <tbody id="mp-tbody"></tbody>
+          <tfoot><tr style="background:#e8f5e9;border-top:2px solid #15a563">
+            <td colspan="3" style="font-weight:800;color:#1B5E20">TOTAL DO PEDIDO</td>
+            <td style="text-align:center;font-weight:800;color:#1B5E20" id="mp-tot-un">0</td>
+            <td style="text-align:right;font-weight:800;color:#1B5E20;font-size:15px" id="mp-tot-val">R$ 0,00</td>
+            <td></td>
+          </tr></tfoot>
+        </table>
+      </div>
+
+      <div id="mp-addwrap" style="margin-top:16px;padding:14px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
+        <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:8px">➕ Incluir um produto que ele esqueceu</div>
+        <div class="input-row" style="align-items:flex-end">
+          <div class="field" style="flex:3"><label>Produto da campanha</label><select id="mp-novo-prod" style="padding:9px;border:1px solid #cbd5e1;border-radius:7px;font-size:13px;width:100%"></select></div>
+          <div class="field" style="flex:1"><label>Quantidade</label><input type="number" id="mp-novo-qtd" min="1" placeholder="0"/></div>
+          <div><button class="btn btn-outline btn-sm" onclick="mpAddItem()">＋ Incluir</button></div>
+        </div>
+      </div>
+
+      <div id="mp-alerta" style="display:none;margin-top:14px;background:#fff8e1;border:1px solid #ffe082;border-left:4px solid #f9a825;border-radius:8px;padding:11px 13px;font-size:12px;color:#7a5c00;line-height:1.5"></div>
+    </div>
+
+    <div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="fecharModalPedido()">Cancelar</button>
+      <button class="btn btn-primary" id="mp-btn-salvar" onclick="salvarPedidoEditado()">💾 Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════════════════════════════════════════════════
      JAVASCRIPT
 ════════════════════════════════════════════════ -->
@@ -624,7 +677,10 @@ async function renderPedidos(){
         <td style="text-align:center;font-weight:700;color:#15a563">${totalUnid}</td>
         <td style="text-align:right;font-weight:800;color:#1B5E20;white-space:nowrap">R$ ${fmtN(totalValor)}</td>
         <td>${bonifStr}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="excluirPedido('${p.id}')">✕</button></td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-outline btn-sm" title="Editar pedido" onclick="abrirModalPedido('${p.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" title="Excluir pedido" onclick="excluirPedido('${p.id}')">✕</button>
+        </td>
       </tr>`;
     }).join('');
 
@@ -689,6 +745,197 @@ async function renderConsolidado(){
   }else{divBonif.style.display='none';}
 
   document.getElementById('d-consol-section').style.display='block';
+}
+
+// ─────────────────────────────
+// EDITAR PEDIDO DE UM ASSOCIADO
+// ─────────────────────────────
+let _mpPedido=null;
+let _mpItens=[];      // cópia de trabalho
+let _mpRemovidos=[];  // ids de itens a excluir no banco
+
+function abrirModalPedido(pedidoId){
+  const ped=_pedidosCache.find(p=>p.id===pedidoId);
+  if(!ped){toast('Pedido não encontrado.','err');return;}
+  _mpPedido=ped;
+  _mpRemovidos=[];
+  _mpItens=_itensCache.filter(i=>i.pedido_id===pedidoId).map(i=>({...i}));
+
+  document.getElementById('mp-sub').textContent=
+    ped.razao_social+' · enviado em '+new Date(ped.created_at).toLocaleString('pt-BR');
+  document.getElementById('mp-razao').value=ped.razao_social||'';
+  document.getElementById('mp-cnpj').value=ped.cnpj||'';
+  document.getElementById('mp-novo-qtd').value='';
+
+  // Produtos da campanha que ainda não estão no pedido
+  const jaTem=_mpItens.map(i=>i.produto_id);
+  const disp=_produtosCache.filter(p=>!jaTem.includes(p.id));
+  const sel=document.getElementById('mp-novo-prod');
+  sel.innerHTML=disp.length
+    ?disp.map(p=>`<option value="${p.id}">${esc(p.descricao)}${p.valor_unit!=null?' — R$ '+fmtN(p.valor_unit):''}</option>`).join('')
+    :'<option value="">(todos os produtos já estão no pedido)</option>';
+  document.getElementById('mp-addwrap').style.display=disp.length?'block':'none';
+
+  document.getElementById('mp-alerta').style.display='none';
+  mpRender();
+  document.getElementById('modal-ped').style.display='flex';
+}
+
+function mpRender(){
+  const tb=document.getElementById('mp-tbody');
+  if(!_mpItens.length){
+    tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:#c62828;padding:20px;font-weight:700">Nenhum item — ao salvar, o pedido inteiro será excluído.</td></tr>';
+  }else{
+    tb.innerHTML=_mpItens.map((it,i)=>{
+      const prod=_produtosCache.find(p=>p.id===it.produto_id);
+      const sub=(it.quantidade||0)*(it.valor_unit||0);
+      const minAviso=prod?.qtd_min&&it.quantidade>0&&it.quantidade<prod.qtd_min
+        ?`<br><small style="color:#c62828;font-weight:700">⚠️ abaixo do mínimo (${prod.qtd_min} un.)</small>`:'';
+      return `<tr${it.quantidade<=0?' style="opacity:.45"':''}>
+        <td>${esc(it.descricao)}${minAviso}</td>
+        <td class="mono">${esc(it.ean)}</td>
+        <td style="text-align:right">${it.valor_unit!=null?'R$ '+fmtN(it.valor_unit):'—'}</td>
+        <td style="text-align:center">
+          <input type="number" min="0" value="${it.quantidade||0}" style="width:80px;text-align:center;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-weight:700"
+                 onchange="mpSetQtd(${i},this.value)"/>
+        </td>
+        <td style="text-align:right;font-weight:700;color:#1B5E20;white-space:nowrap">R$ ${fmtN(sub)}</td>
+        <td><button class="btn btn-danger btn-sm" title="Remover item" onclick="mpRemover(${i})">✕</button></td>
+      </tr>`;
+    }).join('');
+  }
+  const totUn=_mpItens.reduce((s,i)=>s+(i.quantidade||0),0);
+  const totVal=_mpItens.reduce((s,i)=>s+((i.quantidade||0)*(i.valor_unit||0)),0);
+  document.getElementById('mp-tot-un').textContent=totUn;
+  document.getElementById('mp-tot-val').textContent='R$ '+fmtN(totVal);
+}
+
+function mpSetQtd(i,v){
+  const q=Math.max(0,parseInt(v)||0);
+  _mpItens[i].quantidade=q;
+  // Recalcula a bonificação com a regra atual do produto
+  const prod=_produtosCache.find(p=>p.id===_mpItens[i].produto_id);
+  if(prod?.bonif_descricao&&prod.bonif_valor_unit&&prod.bonif_prod_valor){
+    _mpItens[i].bonif_descricao=prod.bonif_descricao;
+    _mpItens[i].bonif_ean=prod.bonif_ean;
+    _mpItens[i].bonif_quantidade=q>0?Math.floor(q*prod.bonif_valor_unit/prod.bonif_prod_valor):null;
+  }
+  mpRender();
+}
+
+function mpRemover(i){
+  const it=_mpItens[i];
+  if(!confirm(`Remover "${it.descricao}" deste pedido?`))return;
+  if(it.id)_mpRemovidos.push(it.id);
+  _mpItens.splice(i,1);
+  mpRender();
+  // Devolve o produto para a lista de inclusão
+  const jaTem=_mpItens.map(x=>x.produto_id);
+  const disp=_produtosCache.filter(p=>!jaTem.includes(p.id));
+  const sel=document.getElementById('mp-novo-prod');
+  sel.innerHTML=disp.map(p=>`<option value="${p.id}">${esc(p.descricao)}${p.valor_unit!=null?' — R$ '+fmtN(p.valor_unit):''}</option>`).join('');
+  document.getElementById('mp-addwrap').style.display=disp.length?'block':'none';
+}
+
+function mpAddItem(){
+  const pid=document.getElementById('mp-novo-prod').value;
+  const q=parseInt(document.getElementById('mp-novo-qtd').value)||0;
+  if(!pid){toast('Selecione um produto.','err');return;}
+  if(q<=0){toast('Informe a quantidade.','err');return;}
+  const prod=_produtosCache.find(p=>p.id===pid);
+  if(!prod)return;
+  const bonif=prod.bonif_descricao&&prod.bonif_valor_unit&&prod.bonif_prod_valor
+    ?Math.floor(q*prod.bonif_valor_unit/prod.bonif_prod_valor):null;
+  _mpItens.push({
+    id:null,pedido_id:_mpPedido.id,produto_id:prod.id,
+    descricao:prod.descricao,ean:prod.ean,valor_unit:prod.valor_unit,quantidade:q,
+    bonif_descricao:prod.bonif_descricao||null,bonif_ean:prod.bonif_ean||null,bonif_quantidade:bonif
+  });
+  document.getElementById('mp-novo-qtd').value='';
+  const jaTem=_mpItens.map(x=>x.produto_id);
+  const disp=_produtosCache.filter(p=>!jaTem.includes(p.id));
+  const sel=document.getElementById('mp-novo-prod');
+  sel.innerHTML=disp.map(p=>`<option value="${p.id}">${esc(p.descricao)}${p.valor_unit!=null?' — R$ '+fmtN(p.valor_unit):''}</option>`).join('');
+  document.getElementById('mp-addwrap').style.display=disp.length?'block':'none';
+  mpRender();
+  toast('Item incluído.','ok');
+}
+
+// Aviso quando o Supabase bloqueia o UPDATE por falta de política (RLS)
+function mpErroPermissao(){
+  const el=document.getElementById('mp-alerta');
+  el.style.display='block';
+  el.innerHTML='🔒 <strong>O banco recusou a alteração.</strong> Falta liberar a permissão de UPDATE '+
+    'nas tabelas <code>cc_pedidos</code> e <code>cc_pedido_itens</code> no Supabase. '+
+    'Rode o arquivo <strong>supabase-editar-pedidos.sql</strong> no SQL Editor do Supabase e tente de novo. '+
+    'Nada foi perdido — o pedido continua como estava.';
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  toast('Permissão de edição não liberada no Supabase.','err');
+}
+
+function fecharModalPedido(){
+  document.getElementById('modal-ped').style.display='none';
+  _mpPedido=null;_mpItens=[];_mpRemovidos=[];
+}
+
+async function salvarPedidoEditado(){
+  if(!_mpPedido)return;
+  const razao=document.getElementById('mp-razao').value.trim();
+  const cnpj=document.getElementById('mp-cnpj').value.trim();
+  if(!razao){toast('Informe a Razão Social.','err');return;}
+
+  // Itens zerados saem do pedido
+  const zerados=_mpItens.filter(i=>(i.quantidade||0)<=0);
+  zerados.forEach(i=>{if(i.id)_mpRemovidos.push(i.id);});
+  const finais=_mpItens.filter(i=>(i.quantidade||0)>0);
+
+  if(!finais.length){
+    if(!confirm('O pedido ficará sem nenhum item. Deseja excluir o pedido inteiro?'))return;
+    await sb.from('cc_pedido_itens').delete().eq('pedido_id',_mpPedido.id);
+    await sb.from('cc_pedidos').delete().eq('id',_mpPedido.id);
+    fecharModalPedido();
+    await carregarDetalhe(campanhaId);
+    toast('Pedido excluído.','ok');
+    return;
+  }
+
+  const btn=document.getElementById('mp-btn-salvar');
+  btn.disabled=true;btn.textContent='⏳ Salvando...';
+  const restaurar=()=>{btn.disabled=false;btn.textContent='💾 Salvar alterações';};
+
+  // 1) Dados da farmácia (o .select() confirma que a linha foi mesmo alterada;
+  //    sem política de UPDATE no Supabase o update passa sem erro e sem efeito)
+  const{data:okPed,error:e0}=await sb.from('cc_pedidos')
+    .update({razao_social:razao,cnpj}).eq('id',_mpPedido.id).select();
+  if(e0){toast('Erro ao salvar os dados da farmácia: '+e0.message,'err');restaurar();return;}
+  if(!okPed||!okPed.length){
+    mpErroPermissao();restaurar();return;
+  }
+
+  // 2) Remove os itens excluídos
+  if(_mpRemovidos.length){
+    const{error}=await sb.from('cc_pedido_itens').delete().in('id',_mpRemovidos);
+    if(error){toast('Erro ao remover itens: '+error.message,'err');restaurar();return;}
+  }
+
+  // 3) Atualiza os que continuam e insere os novos
+  for(const it of finais){
+    const campos={
+      descricao:it.descricao,ean:it.ean,valor_unit:it.valor_unit,quantidade:it.quantidade,
+      bonif_descricao:it.bonif_descricao||null,bonif_ean:it.bonif_ean||null,
+      bonif_quantidade:it.bonif_quantidade??null
+    };
+    const{data,error}=it.id
+      ?await sb.from('cc_pedido_itens').update(campos).eq('id',it.id).select()
+      :await sb.from('cc_pedido_itens').insert({pedido_id:_mpPedido.id,produto_id:it.produto_id,...campos}).select();
+    if(error){toast('Erro ao salvar "'+it.descricao+'": '+error.message,'err');restaurar();return;}
+    if(it.id&&(!data||!data.length)){mpErroPermissao();restaurar();return;}
+  }
+
+  restaurar();
+  fecharModalPedido();
+  await carregarDetalhe(campanhaId);
+  toast('Pedido atualizado!','ok');
 }
 
 async function excluirPedido(id){
