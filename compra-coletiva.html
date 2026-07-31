@@ -281,9 +281,11 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
     <!-- NOVA CAMPANHA -->
     <div class="page" id="pg-nova">
       <div class="page-header">
-        <div><div class="page-title">➕ Nova Campanha</div><div class="page-sub">Configure os produtos e gere o link para os associados</div></div>
-        <button class="btn btn-outline" onclick="irPara('campanhas')">← Voltar</button>
+        <div><div class="page-title" id="n-titulo">➕ Nova Campanha</div><div class="page-sub" id="n-subtitulo">Configure os produtos e gere o link para os associados</div></div>
+        <button class="btn btn-outline" id="n-btn-voltar" onclick="irPara('campanhas')">← Voltar</button>
       </div>
+
+      <div id="n-aviso-edicao" style="display:none;background:#fff8e1;border:1px solid #ffe082;border-left:4px solid #f9a825;border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:13px;color:#7a5c00;line-height:1.5"></div>
 
       <div class="form-section">
         <h3>📝 Identificação</h3>
@@ -330,13 +332,14 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
           <div id="n-bonif-preview" style="font-size:12px;color:#856404;margin-top:8px;min-height:18px"></div>
         </div>
 
-        <div style="margin-top:16px">
-          <button class="btn btn-primary" onclick="addProdNova()">＋ Adicionar produto à lista</button>
+        <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary" id="n-btn-addprod" onclick="addProdNova()">＋ Adicionar produto à lista</button>
+          <button class="btn btn-outline" id="n-btn-cancelprod" onclick="cancelarEdicaoProduto()" style="display:none">✕ Cancelar edição do produto</button>
         </div>
 
         <div style="margin-top:20px;overflow-x:auto;border-radius:8px;border:1px solid #e2e8f0">
           <table class="prod-table">
-            <thead><tr><th>#</th><th>Img</th><th>Descrição</th><th>EAN</th><th>Valor</th><th>Qtd Mín.</th><th>Condição Especial</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Img</th><th>Descrição</th><th>EAN</th><th>Valor</th><th>Qtd Mín.</th><th>Limite</th><th>Condição Especial</th><th></th></tr></thead>
             <tbody id="n-tbody"></tbody>
           </table>
         </div>
@@ -344,8 +347,8 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
       </div>
 
       <div style="display:flex;gap:12px;justify-content:flex-end">
-        <button class="btn btn-outline" onclick="irPara('campanhas')">Cancelar</button>
-        <button class="btn btn-primary" onclick="salvarCampanha()" style="padding:11px 28px">💾 Criar Campanha</button>
+        <button class="btn btn-outline" id="n-btn-cancelar" onclick="cancelarCampanha()">Cancelar</button>
+        <button class="btn btn-primary" id="n-btn-salvar" onclick="salvarCampanha()" style="padding:11px 28px">💾 Criar Campanha</button>
       </div>
     </div>
 
@@ -354,6 +357,7 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
       <div class="page-header">
         <button class="btn btn-outline btn-sm" onclick="irPara('campanhas')">← Campanhas</button>
         <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-primary btn-sm" onclick="editarCampanha()">✏️ Editar campanha</button>
           <button class="btn btn-danger btn-sm" id="btn-encerrar" onclick="alterarStatusCampanha()">⏹ Encerrar</button>
           <button class="btn btn-danger btn-sm" onclick="excluirCampanha()">🗑 Excluir</button>
         </div>
@@ -458,6 +462,9 @@ let _campanhaCache={};
 let _produtosCache=[];
 let _pedidosCache=[];
 let _novaProdutos=[];
+let _editandoId=null;        // id da campanha em edição (null = criando nova)
+let _prodOriginais=[];       // ids dos produtos que já existiam no banco
+let _editandoProdIdx=null;   // índice do produto sendo editado na lista
 
 // ─────────────────────────────
 // INIT
@@ -565,7 +572,7 @@ async function carregarDetalhe(id){
         <td>${esc(p.descricao)}</td>
         <td class="mono">${esc(p.ean)}</td>
         <td>${p.valor_unit!=null?'R$ '+fmtN(p.valor_unit):'—'}</td>
-        <td>${p.qtd_min||'—'}</td>
+        <td>${p.qtd_min?`<span style="font-weight:700;color:#c62828">${p.qtd_min} un.</span>`:'—'}</td>
         <td>${p.limite_qtd?`<span style="font-weight:700;color:#1565C0">${p.limite_qtd} un.</span>`:'—'}</td>
         <td>${p.bonif_descricao?`<span class="bonif-tag">🎁 R$${fmtN(p.bonif_valor_unit)}/un → ${esc(p.bonif_descricao)} (R$${fmtN(p.bonif_prod_valor)})</span>`:'—'}</td>
       </tr>`).join('')
@@ -691,14 +698,74 @@ function abrirWpp(){
 // NOVA CAMPANHA
 // ─────────────────────────────
 function initNova(){
+  _editandoId=null;
+  _prodOriginais=[];
   _novaProdutos=[];
-  ['n-nome','n-desc','n-ean','n-valor','n-qtdmin','n-bonif-desc','n-bonif-ean','n-bonif-prod-valor','n-bonif-valor-unit']
+  _editandoProdIdx=null;
+  document.getElementById('n-titulo').textContent='➕ Nova Campanha';
+  document.getElementById('n-subtitulo').textContent='Configure os produtos e gere o link para os associados';
+  document.getElementById('n-btn-salvar').textContent='💾 Criar Campanha';
+  document.getElementById('n-aviso-edicao').style.display='none';
+  limparCamposProduto();
+  document.getElementById('n-nome').value='';
+  renderNovaProdutos();
+}
+
+// ─────────────────────────────
+// EDITAR CAMPANHA EXISTENTE
+// ─────────────────────────────
+async function editarCampanha(){
+  if(!campanhaId)return;
+  const{data:camp}=await sb.from('cc_campanhas').select('*').eq('id',campanhaId).single();
+  if(!camp){toast('Campanha não encontrada.','err');return;}
+  const{data:prods}=await sb.from('cc_produtos').select('*').eq('campanha_id',campanhaId).order('ordem');
+  const{data:peds}=await sb.from('cc_pedidos').select('id').eq('campanha_id',campanhaId);
+
+  _editandoId=campanhaId;
+  _editandoProdIdx=null;
+  _prodOriginais=(prods||[]).map(p=>p.id);
+  _novaProdutos=(prods||[]).map((p,i)=>({
+    id:'db_'+p.id, dbId:p.id,
+    descricao:p.descricao, ean:p.ean, valor_unit:p.valor_unit,
+    qtd_min:p.qtd_min, limite_qtd:p.limite_qtd, ordem:i, imagem_url:p.imagem_url||null,
+    bonif_descricao:p.bonif_descricao, bonif_ean:p.bonif_ean,
+    bonif_prod_valor:p.bonif_prod_valor, bonif_valor_unit:p.bonif_valor_unit
+  }));
+
+  document.getElementById('n-titulo').textContent='✏️ Editar Campanha';
+  document.getElementById('n-subtitulo').textContent='Altere os produtos e as condições desta campanha';
+  document.getElementById('n-btn-salvar').textContent='💾 Salvar Alterações';
+  document.getElementById('n-nome').value=camp.nome||'';
+
+  const nped=(peds||[]).length;
+  const aviso=document.getElementById('n-aviso-edicao');
+  aviso.style.display='block';
+  aviso.innerHTML=nped>0
+    ? `⚠️ <strong>Atenção:</strong> esta campanha já tem <strong>${nped} pedido(s)</strong> registrado(s). As alterações valem para os <strong>próximos</strong> pedidos — os já enviados mantêm os valores originais. Se você incluir uma quantidade mínima agora, vale a pena reenviar o link aos associados avisando da mudança.`
+    : `✏️ Você está editando uma campanha já criada. <strong>O link enviado aos associados continua o mesmo</strong> — não precisa reenviar (mas avise se a condição mudou).`;
+
+  limparCamposProduto();
+  renderNovaProdutos();
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('ativo'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('ativo'));
+  document.getElementById('pg-nova').classList.add('ativo');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function cancelarCampanha(){
+  if(_editandoId){campanhaId=_editandoId;_editandoId=null;irPara('detalhe');}
+  else irPara('campanhas');
+}
+
+function limparCamposProduto(){
+  ['n-desc','n-ean','n-valor','n-qtdmin','n-limite','n-bonif-desc','n-bonif-ean','n-bonif-prod-valor','n-bonif-valor-unit']
     .forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('n-tem-bonif').checked=false;
   document.getElementById('n-bonif-fields').classList.remove('show');
   document.getElementById('n-bonif-preview').textContent='';
+  document.getElementById('n-btn-addprod').textContent='＋ Adicionar produto à lista';
+  document.getElementById('n-btn-cancelprod').style.display='none';
   limparImagem();
-  renderNovaProdutos();
 }
 
 function previewImagem(input){
@@ -771,9 +838,15 @@ async function addProdNova(){
     if(!imagemUrl)return;
   }
 
+  const editando=_editandoProdIdx!==null;
+  const anterior=editando?_novaProdutos[_editandoProdIdx]:null;
+
   const prod={
-    id:Date.now(),descricao:desc,ean,valor_unit:valor,qtd_min:qtdmin,limite_qtd:limite,
-    ordem:_novaProdutos.length,imagem_url:imagemUrl,
+    id:editando?anterior.id:'novo_'+Date.now(),
+    dbId:editando?anterior.dbId:undefined,
+    descricao:desc,ean,valor_unit:valor,qtd_min:qtdmin,limite_qtd:limite,
+    ordem:editando?_editandoProdIdx:_novaProdutos.length,
+    imagem_url:imagemUrl||(editando?anterior.imagem_url:null),
     bonif_descricao:null,bonif_ean:null,bonif_prod_valor:null,bonif_valor_unit:null
   };
 
@@ -787,41 +860,96 @@ async function addProdNova(){
     prod.bonif_prod_valor=bProdValor;prod.bonif_valor_unit=bValorUnit;
   }
 
-  _novaProdutos.push(prod);
-  ['n-desc','n-ean','n-valor','n-qtdmin','n-limite','n-bonif-desc','n-bonif-ean','n-bonif-prod-valor','n-bonif-valor-unit']
-    .forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('n-tem-bonif').checked=false;
-  document.getElementById('n-bonif-fields').classList.remove('show');
-  document.getElementById('n-bonif-preview').textContent='';
-  limparImagem();
+  if(editando){_novaProdutos[_editandoProdIdx]=prod;_editandoProdIdx=null;}
+  else{_novaProdutos.push(prod);}
+
+  limparCamposProduto();
   document.getElementById('n-desc').focus();
   renderNovaProdutos();
-  toast('Produto adicionado!','ok');
+  toast(editando?'Produto atualizado!':'Produto adicionado!','ok');
 }
 
-function removerProdNova(id){_novaProdutos=_novaProdutos.filter(p=>p.id!==id);renderNovaProdutos();}
+// Carrega um produto da lista de volta nos campos do formulário
+function editarProdNova(i){
+  const p=_novaProdutos[i];
+  if(!p)return;
+  _editandoProdIdx=i;
+  document.getElementById('n-desc').value=p.descricao||'';
+  document.getElementById('n-ean').value=p.ean||'';
+  document.getElementById('n-valor').value=p.valor_unit??'';
+  document.getElementById('n-qtdmin').value=p.qtd_min??'';
+  document.getElementById('n-limite').value=p.limite_qtd??'';
+
+  const temBonif=!!p.bonif_descricao;
+  const cb=document.getElementById('n-tem-bonif');
+  cb.checked=temBonif;
+  document.getElementById('n-bonif-fields').classList.toggle('show',temBonif);
+  document.getElementById('n-bonif-desc').value=p.bonif_descricao||'';
+  document.getElementById('n-bonif-ean').value=p.bonif_ean||'';
+  document.getElementById('n-bonif-prod-valor').value=p.bonif_prod_valor??'';
+  document.getElementById('n-bonif-valor-unit').value=p.bonif_valor_unit??'';
+  atualizarPreviewBonif();
+
+  limparImagem();
+  const status=document.getElementById('n-img-status');
+  const prev=document.getElementById('n-img-preview');
+  if(p.imagem_url){
+    prev.src=p.imagem_url;prev.style.display='block';
+    status.textContent='Imagem atual (escolha outra para substituir)';
+  }
+
+  document.getElementById('n-btn-addprod').textContent='💾 Salvar alterações do produto';
+  document.getElementById('n-btn-cancelprod').style.display='inline-flex';
+  document.getElementById('n-desc').scrollIntoView({behavior:'smooth',block:'center'});
+  document.getElementById('n-qtdmin').focus();
+  renderNovaProdutos();
+}
+
+function cancelarEdicaoProduto(){
+  _editandoProdIdx=null;
+  limparCamposProduto();
+  renderNovaProdutos();
+}
+
+function removerProdNova(id){
+  const p=_novaProdutos.find(x=>String(x.id)===String(id));
+  if(p&&!confirm(`Remover "${p.descricao}" da campanha?`))return;
+  if(_editandoProdIdx!==null&&String(_novaProdutos[_editandoProdIdx]?.id)===String(id))cancelarEdicaoProduto();
+  _novaProdutos=_novaProdutos.filter(x=>String(x.id)!==String(id));
+  renderNovaProdutos();
+}
 
 function renderNovaProdutos(){
   const tbody=document.getElementById('n-tbody');
   const empty=document.getElementById('n-empty');
   if(!_novaProdutos.length){tbody.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
-  tbody.innerHTML=_novaProdutos.map((p,i)=>`<tr>
+  tbody.innerHTML=_novaProdutos.map((p,i)=>{
+    const emEdicao=_editandoProdIdx===i;
+    return `<tr${emEdicao?' style="background:#fff8e1"':''}>
     <td style="color:#aaa">${i+1}</td>
     <td>${p.imagem_url?`<img src="${p.imagem_url}" class="prod-img-thumb" alt="img"/>`:'<span style="color:#ddd;font-size:18px">📷</span>'}</td>
-    <td>${esc(p.descricao)}</td>
+    <td>${esc(p.descricao)}${emEdicao?' <small style="color:#f9a825;font-weight:700">(editando)</small>':''}</td>
     <td class="mono">${esc(p.ean)}</td>
     <td>${p.valor_unit!=null?'R$ '+fmtN(p.valor_unit):'—'}</td>
-    <td>${p.qtd_min||'—'}</td>
+    <td>${p.qtd_min?`<span style="font-weight:700;color:#c62828">${p.qtd_min} un.</span>`:'—'}</td>
+    <td>${p.limite_qtd?`<span style="font-weight:700;color:#1565C0">${p.limite_qtd} un.</span>`:'—'}</td>
     <td>${p.bonif_descricao?`<span class="bonif-tag">🎁 R$${fmtN(p.bonif_valor_unit)}/un → ${esc(p.bonif_descricao)} (R$${fmtN(p.bonif_prod_valor)})</span>`:'—'}</td>
-    <td><button class="btn btn-danger btn-sm" onclick="removerProdNova(${p.id})">✕</button></td>
-  </tr>`).join('');
+    <td style="white-space:nowrap">
+      <button class="btn btn-outline btn-sm" title="Editar produto" onclick="editarProdNova(${i})">✏️</button>
+      <button class="btn btn-danger btn-sm" title="Remover produto" onclick="removerProdNova('${p.id}')">✕</button>
+    </td>
+  </tr>`;}).join('');
 }
 
 async function salvarCampanha(){
   const nome=document.getElementById('n-nome').value.trim();
   if(!nome){toast('Informe o nome da campanha.','err');return;}
   if(!_novaProdutos.length){toast('Adicione pelo menos um produto.','err');return;}
+  if(_editandoProdIdx!==null){toast('Termine de editar o produto antes de salvar a campanha.','err');return;}
+
+  if(_editandoId){await atualizarCampanha(nome);return;}
+
   const token=crypto.randomUUID().replace(/-/g,'').substring(0,16);
   const{data:camp,error:e1}=await sb.from('cc_campanhas').insert({nome,status:'ativa',token}).select().single();
   if(e1){toast('Erro: '+e1.message,'err');return;}
@@ -835,6 +963,56 @@ async function salvarCampanha(){
   );
   if(e2){toast('Erro ao salvar produtos: '+e2.message,'err');return;}
   toast('Campanha criada!','ok');campanhaId=camp.id;irPara('detalhe');
+}
+
+// Atualiza uma campanha existente sem quebrar o vínculo dos pedidos já enviados
+async function atualizarCampanha(nome){
+  const btn=document.getElementById('n-btn-salvar');
+  btn.disabled=true;btn.textContent='⏳ Salvando...';
+  const restaurar=()=>{btn.disabled=false;btn.textContent='💾 Salvar Alterações';};
+
+  const{error:eNome}=await sb.from('cc_campanhas').update({nome}).eq('id',_editandoId);
+  if(eNome){toast('Erro ao salvar o nome: '+eNome.message,'err');restaurar();return;}
+
+  const campos=p=>({
+    descricao:p.descricao,ean:p.ean,valor_unit:p.valor_unit,
+    qtd_min:p.qtd_min||null,limite_qtd:p.limite_qtd||null,imagem_url:p.imagem_url||null,
+    bonif_descricao:p.bonif_descricao||null,bonif_ean:p.bonif_ean||null,
+    bonif_prod_valor:p.bonif_prod_valor??null,bonif_valor_unit:p.bonif_valor_unit??null
+  });
+
+  // 1) Atualiza os produtos que já existiam (preserva o id, logo preserva os pedidos)
+  const existentes=_novaProdutos.filter(p=>p.dbId);
+  for(let i=0;i<_novaProdutos.length;i++){
+    const p=_novaProdutos[i];
+    if(!p.dbId)continue;
+    const{error}=await sb.from('cc_produtos').update({...campos(p),ordem:i}).eq('id',p.dbId);
+    if(error){toast('Erro ao atualizar "'+p.descricao+'": '+error.message,'err');restaurar();return;}
+  }
+
+  // 2) Insere os produtos novos
+  const novos=_novaProdutos.map((p,i)=>({p,i})).filter(x=>!x.p.dbId);
+  if(novos.length){
+    const{error}=await sb.from('cc_produtos').insert(
+      novos.map(({p,i})=>({campanha_id:_editandoId,...campos(p),ordem:i}))
+    );
+    if(error){toast('Erro ao inserir novos produtos: '+error.message,'err');restaurar();return;}
+  }
+
+  // 3) Remove os que foram excluídos da lista
+  const mantidos=existentes.map(p=>p.dbId);
+  const removidos=_prodOriginais.filter(id=>!mantidos.includes(id));
+  if(removidos.length){
+    const{error}=await sb.from('cc_produtos').delete().in('id',removidos);
+    if(error){toast('Erro ao remover produtos: '+error.message,'err');restaurar();return;}
+  }
+
+  const id=_editandoId;
+  _editandoId=null;_prodOriginais=[];
+  restaurar();
+  toast('Campanha atualizada com sucesso!','ok');
+  campanhaId=id;
+  irPara('detalhe');
 }
 
 // ─────────────────────────────
@@ -872,7 +1050,7 @@ function renderFormProdutos(){
   let rows='';
   _formProdutos.forEach((p,i)=>{
     const valorStr=p.valor_unit!=null?`<br><small style="color:#999">R$ ${fmtN(p.valor_unit)}/unidade</small>`:'';
-    const qtdMinStr=p.qtd_min?`<small style="color:#aaa;font-size:11px"> · Qtd mín: ${p.qtd_min}</small>`:'';
+    const qtdMinStr=p.qtd_min?`<br><span style="display:inline-block;margin-top:4px;background:#ffebee;color:#c62828;border:1px solid #ffcdd2;border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700">⚠️ Pedido mínimo obrigatório: ${p.qtd_min} un.</span>`:'';
     const imgStr=p.imagem_url?`<img src="${p.imagem_url}" class="form-prod-img" alt="${esc(p.descricao)}"/>`:'';
     // Linha do produto
     rows+=`<tr>
@@ -884,6 +1062,7 @@ function renderFormProdutos(){
           <input type="number" class="qty-input" id="q${i}" value="0" min="0" oninput="onQtyChange(${i})"/>
           <button class="qty-btn" type="button" onclick="setQty(${i},1)">+</button>
         </div>
+        <div id="min-alerta-${i}" style="display:none;color:#c62828;font-size:11px;font-weight:700;margin-top:5px;text-align:right"></div>
       </td>
     </tr>`;
     // Linha de bonificação (sempre visível quando produto tem bonif)
@@ -921,6 +1100,22 @@ function onQtyChange(i){
   const v=parseInt(inp.value)||0;
   inp.className='qty-input'+(v>0?' has-value':'');
   const p=_formProdutos[i];
+
+  // Aviso de quantidade mínima obrigatória
+  const alerta=document.getElementById('min-alerta-'+i);
+  if(alerta&&p?.qtd_min){
+    if(v>0&&v<p.qtd_min){
+      alerta.style.display='block';
+      alerta.textContent=`⚠️ Mínimo de ${p.qtd_min} un. — faltam ${p.qtd_min-v}`;
+      inp.style.borderColor='#c62828';
+      inp.style.background='#ffebee';
+    }else{
+      alerta.style.display='none';
+      inp.style.borderColor='';
+      inp.style.background='';
+    }
+  }
+
   if(!p?.bonif_descricao)return;
 
   const row=document.getElementById('bonif-row-'+i);
@@ -1001,6 +1196,18 @@ async function submeterPedido(){
   }).filter(it=>it.quantidade>0);
 
   if(!itens.length){showFormErr('Informe a quantidade de pelo menos um produto.');return;}
+
+  // Validar quantidade mínima obrigatória por produto
+  const abaixoDoMinimo=[];
+  _formProdutos.forEach((p,i)=>{
+    if(!p.qtd_min)return;
+    const qty=parseInt(document.getElementById('q'+i).value)||0;
+    if(qty>0&&qty<p.qtd_min)abaixoDoMinimo.push(`"${p.descricao}": você pediu ${qty} un., o mínimo é ${p.qtd_min} un.`);
+  });
+  if(abaixoDoMinimo.length){
+    showFormErr('⚠️ Quantidade mínima obrigatória não atingida — '+abaixoDoMinimo.join(' | ')+'. Ajuste a quantidade (ou deixe zerado para não pedir este item) e envie novamente.');
+    return;
+  }
 
   // Verificar se o CNPJ foi validado (sem duplicata ou usuário aceitou continuar)
   const cnpjRaw=cnpj.replace(/\D/g,'');
