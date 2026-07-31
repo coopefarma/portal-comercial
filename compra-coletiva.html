@@ -179,6 +179,27 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
 .success-screen .resumo-bonif{background:#fff3cd;border-radius:10px;padding:16px;margin-top:20px;text-align:left;font-size:13px;color:#6d4c00}
 .success-screen .resumo-bonif h4{font-size:14px;font-weight:700;margin-bottom:8px}
 
+/* ── Resumo do pedido no formulário do associado ── */
+.resumo-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  background:linear-gradient(135deg,#15a563,#0f8a52);color:#fff;border-radius:12px;
+  padding:14px 18px;margin-bottom:16px;box-shadow:0 4px 14px rgba(21,165,99,.28)}
+.resumo-topo{position:sticky;top:8px;z-index:50}
+.resumo-rodape{margin-top:4px;margin-bottom:14px;padding:18px}
+.resumo-lado{display:flex;flex-direction:column;gap:2px;min-width:0}
+.resumo-cap{font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;letter-spacing:.2px}
+.resumo-det{font-size:12px;opacity:.9}
+.resumo-valor{font-family:'Poppins',sans-serif;font-size:1.6rem;font-weight:800;white-space:nowrap;
+  transition:transform .18s ease}
+.resumo-rodape .resumo-valor{font-size:1.9rem}
+.resumo-valor.pulsa{transform:scale(1.12)}
+.resumo-bonif-aviso{background:#FFF8E1;border:1px solid #FFE082;border-left:4px solid #F9A825;
+  border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:#7A5C00;line-height:1.6}
+@media(max-width:768px){
+  .resumo-valor{font-size:1.35rem}
+  .resumo-rodape .resumo-valor{font-size:1.6rem}
+  .resumo-bar{padding:12px 14px}
+  .resumo-topo{top:0;border-radius:0 0 12px 12px}
+}
 @media(max-width:768px){.topbar-nav{display:none}.main{padding:16px}.camp-grid{grid-template-columns:1fr}.input-row{flex-direction:column}.stats-row{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.form-card{padding:16px}.itens-table thead th:nth-child(2){display:none}.itens-table tbody td:nth-child(2){display:none}}
 </style>
@@ -209,10 +230,29 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
         </div>
       </div>
 
+      <!-- Resumo do topo — acompanha a rolagem -->
+      <div class="resumo-bar resumo-topo" id="resumo-topo" style="display:none">
+        <div class="resumo-lado">
+          <span class="resumo-cap">Seu pedido</span>
+          <span class="resumo-det"><strong id="rt-itens">0</strong> produto(s) · <strong id="rt-un">0</strong> un.</span>
+        </div>
+        <div class="resumo-valor" id="rt-valor">R$ 0,00</div>
+      </div>
+
       <div class="form-card" id="form-card-itens">
         <h2>📦 Produtos — informe as quantidades desejadas</h2>
         <div class="loading-box"><div class="spin"></div>Carregando produtos...</div>
       </div>
+
+      <!-- Resumo do rodapé, logo acima do botão -->
+      <div class="resumo-bar resumo-rodape" id="resumo-rodape" style="display:none">
+        <div class="resumo-lado">
+          <span class="resumo-cap">Total do seu pedido</span>
+          <span class="resumo-det"><strong id="rr-itens">0</strong> produto(s) · <strong id="rr-un">0</strong> un.</span>
+        </div>
+        <div class="resumo-valor" id="rr-valor">R$ 0,00</div>
+      </div>
+      <div class="resumo-bonif-aviso" id="resumo-bonif-aviso" style="display:none"></div>
 
       <button class="btn-submit" id="btn-submit-form" onclick="submeterPedido()" disabled>✅ Confirmar Pedido</button>
     </div>
@@ -1370,6 +1410,7 @@ function renderFormProdutos(){
       <tbody>${rows}</tbody>
     </table></div>`;
   document.getElementById('btn-submit-form').disabled=false;
+  atualizarResumoPedido();
 }
 
 function setQty(i,d){
@@ -1401,6 +1442,8 @@ function onQtyChange(i){
     }
   }
 
+  atualizarResumoPedido();
+
   if(!p?.bonif_descricao)return;
 
   const row=document.getElementById('bonif-row-'+i);
@@ -1419,6 +1462,56 @@ function onQtyChange(i){
     `<span>${v} × R$${fmtN(p.bonif_valor_unit)} = <strong>R$ ${fmtN(totalBonif)}</strong> em bonificação →</span>`+
     `<span class="resultado">🎁 ${qtdBonifInt} unidade${qtdBonifInt!==1?'s':''} de ${esc(p.bonif_descricao)}</span>`+
     `<span style="font-size:11px;color:#aaa">(R$ ${fmtN(p.bonif_prod_valor)}/un)</span>`;
+}
+
+// Recalcula o resumo do pedido (topo e rodapé) a cada digitação
+let _ultimoTotal=0;
+function atualizarResumoPedido(){
+  let nItens=0,nUn=0,valor=0;
+  const bonifs=[];
+
+  _formProdutos.forEach((p,i)=>{
+    const inp=document.getElementById('q'+i);
+    if(!inp)return;
+    const q=parseInt(inp.value)||0;
+    if(q<=0)return;
+    nItens++;nUn+=q;valor+=q*(p.valor_unit||0);
+    if(p.bonif_descricao&&p.bonif_valor_unit&&p.bonif_prod_valor){
+      const qb=Math.floor(q*p.bonif_valor_unit/p.bonif_prod_valor);
+      if(qb>0)bonifs.push(`<strong>${qb}</strong> un. de ${esc(p.bonif_descricao)}`);
+    }
+  });
+
+  const topo=document.getElementById('resumo-topo');
+  const rodape=document.getElementById('resumo-rodape');
+  const mostrar=nItens>0;
+  topo.style.display=mostrar?'flex':'none';
+  rodape.style.display=mostrar?'flex':'none';
+
+  const val='R$ '+fmtN(valor);
+  document.getElementById('rt-itens').textContent=nItens;
+  document.getElementById('rt-un').textContent=nUn;
+  document.getElementById('rt-valor').textContent=val;
+  document.getElementById('rr-itens').textContent=nItens;
+  document.getElementById('rr-un').textContent=nUn;
+  document.getElementById('rr-valor').textContent=val;
+
+  // Bonificações acumuladas até aqui
+  const av=document.getElementById('resumo-bonif-aviso');
+  if(bonifs.length){
+    av.style.display='block';
+    av.innerHTML='🎁 <strong>Com este pedido você recebe:</strong> '+bonifs.join(' · ');
+  }else{av.style.display='none';}
+
+  // Pequena animação quando o valor muda, para chamar atenção
+  if(valor!==_ultimoTotal){
+    _ultimoTotal=valor;
+    ['rt-valor','rr-valor'].forEach(id=>{
+      const el=document.getElementById(id);
+      el.classList.add('pulsa');
+      setTimeout(()=>el.classList.remove('pulsa'),180);
+    });
+  }
 }
 
 let _cnpjDuplicadoOk=false;
