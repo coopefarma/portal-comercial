@@ -1335,7 +1335,22 @@ const XS={
   totCab:{font:{bold:true,sz:13,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1B5E20'}},alignment:{vertical:'center'}},
   totNum:{font:{bold:true,sz:13,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1B5E20'}},alignment:{horizontal:'right',vertical:'center'}},
 };
-function sc(v,s){return {v,s};}
+
+// Formato de moeda brasileiro. No xlsx-js-style o formato precisa vir
+// dentro do estilo (numFmt) — a propriedade cell.z é ignorada.
+const FMT_MOEDA='R$ #,##0.00';
+const moeda=st=>({...st,numFmt:FMT_MOEDA});
+XS.moeda      = moeda(XS.num);
+XS.moedaAlt   = moeda(XS.numAlt);
+XS.subMoeda   = moeda(XS.subNum);
+XS.totMoeda   = moeda(XS.totNum);
+// Cria a célula já com o TIPO correto.
+// Sem isso o xlsx-js-style grava tudo como texto (t="str") e o Excel
+// mostra "407.88" em vez de R$ 407,88 — e não soma nem filtra os valores.
+function sc(v,s){
+  if(typeof v==='number'&&isFinite(v))return {v,t:'n',s};
+  return {v:v==null?'':String(v),t:'s',s};
+}
 function applySheetStyle(ws,noCols){
   ws['!sheetViews']=[{showGridLines:false}];
   ws['!cols']=noCols;
@@ -1383,9 +1398,9 @@ async function exportarConsolidado(){
       sc(d.descricao,i%2?XS.dadoAlt:XS.dado),
       sc(d.ean,i%2?XS.dadoAlt:XS.dado),
       sc(d.total,i%2?XS.numAlt:XS.num),
-      sc(Number(d.valor.toFixed(2)),i%2?XS.numAlt:XS.num)
+      sc(Number(d.valor.toFixed(2)),i%2?XS.moedaAlt:XS.moeda)
     ]),
-    [sc('TOTAL GERAL',XS.totCab),sc('',XS.totCab),sc(gQtd,XS.totNum),sc(Number(gValor.toFixed(2)),XS.totNum)]
+    [sc('TOTAL GERAL',XS.totCab),sc('',XS.totCab),sc(gQtd,XS.totNum),sc(Number(gValor.toFixed(2)),XS.totMoeda)]
   ];
 
   const fimProd=rows1.length-1; // linha do total geral
@@ -1409,7 +1424,6 @@ async function exportarConsolidado(){
     s1['!merges'].push({s:{r:bRow,c:0},e:{r:bRow,c:NC-1}});
   }
   s1['!rows']=[{hpt:24},{hpt:16}];
-  fmtMoeda(s1,[3],4,fimProd);
   applySheetStyle(s1,[{wch:55},{wch:20},{wch:18},{wch:18}]);
   XLSX.utils.book_append_sheet(wb,s1,'Pedido Fornecedor');
   XLSX.writeFile(wb,'Pedido_Consolidado_'+nm+'.xlsx');
@@ -1443,6 +1457,7 @@ async function exportarDetalhado(){
       const i=dataRows.length;
       const s=i%2?XS.dadoAlt:XS.dado;
       const sn=i%2?XS.numAlt:XS.num;
+      const sm=i%2?XS.moedaAlt:XS.moeda;
       const vTot=(it.quantidade||0)*(it.valor_unit||0);
       const qBon=it.bonif_quantidade?Math.floor(it.bonif_quantidade):0;
       sQtd+=it.quantidade||0;sValor+=vTot;sBonif+=qBon;
@@ -1450,8 +1465,8 @@ async function exportarDetalhado(){
         sc(dt,s),sc(ped.razao_social,s),sc(ped.cnpj,s),
         sc(it.descricao,s),sc(it.ean,s),
         sc(it.quantidade,sn),
-        sc(it.valor_unit!=null?Number(it.valor_unit):'',sn),
-        sc(Number(vTot.toFixed(2)),sn),
+        sc(it.valor_unit!=null?Number(it.valor_unit):'',sm),
+        sc(Number(vTot.toFixed(2)),sm),
         sc(it.bonif_descricao||'',s),
         sc(qBon||'',sn)
       ]);
@@ -1461,7 +1476,7 @@ async function exportarDetalhado(){
     dataRows.push([
       sc('SUBTOTAL — '+ped.razao_social,XS.subCab),sc('',XS.subCab),sc('',XS.subCab),
       sc('',XS.subCab),sc('',XS.subCab),
-      sc(sQtd,XS.subNum),sc('',XS.subNum),sc(Number(sValor.toFixed(2)),XS.subNum),
+      sc(sQtd,XS.subNum),sc('',XS.subNum),sc(Number(sValor.toFixed(2)),XS.subMoeda),
       sc('',XS.subCab),sc(sBonif||'',XS.subNum)
     ]);
     dataRows.push(Array(NC).fill(sc('',XS.vazio)));
@@ -1472,7 +1487,7 @@ async function exportarDetalhado(){
   dataRows.push([
     sc('TOTAL GERAL — '+_pedidosCache.length+' pedido(s)',XS.totCab),sc('',XS.totCab),sc('',XS.totCab),
     sc('',XS.totCab),sc('',XS.totCab),
-    sc(gQtd,XS.totNum),sc('',XS.totNum),sc(Number(gValor.toFixed(2)),XS.totNum),
+    sc(gQtd,XS.totNum),sc('',XS.totNum),sc(Number(gValor.toFixed(2)),XS.totMoeda),
     sc('',XS.totCab),sc(gBonif||'',XS.totNum)
   ]);
 
@@ -1487,22 +1502,9 @@ async function exportarDetalhado(){
   const s=XLSX.utils.aoa_to_sheet(rows);
   s['!merges']=[{s:{r:0,c:0},e:{r:0,c:NC-1}},{s:{r:1,c:0},e:{r:1,c:NC-1}}];
   s['!rows']=[{hpt:24},{hpt:16}];
-  // Formato de moeda nas colunas de valor
-  fmtMoeda(s,[6,7],4,rows.length-1);
   applySheetStyle(s,[{wch:20},{wch:42},{wch:20},{wch:50},{wch:16},{wch:12},{wch:15},{wch:16},{wch:32},{wch:16}]);
   XLSX.utils.book_append_sheet(wb,s,'Pedidos Detalhados');
   XLSX.writeFile(wb,'Pedidos_Detalhados_'+nm+'.xlsx');
-}
-
-// Aplica formato de moeda R$ nas colunas indicadas
-function fmtMoeda(ws,cols,rIni,rFim){
-  for(let r=rIni;r<=rFim;r++){
-    cols.forEach(c=>{
-      const ref=XLSX.utils.encode_cell({r,c});
-      const cell=ws[ref];
-      if(cell&&typeof cell.v==='number')cell.z='R$ #,##0.00';
-    });
-  }
 }
 
 // ─────────────────────────────
