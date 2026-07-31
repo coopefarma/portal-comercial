@@ -409,7 +409,7 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
         <h3>📊 Consolidado — Total por produto</h3>
         <div style="overflow-x:auto;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:16px">
           <table class="consol-table" id="d-consol-table">
-            <thead><tr><th>Descrição do Produto</th><th>Código EAN</th><th class="num">Qtd. Total</th><th class="num">Farmácias</th></tr></thead>
+            <thead><tr><th>Descrição do Produto</th><th>Código EAN</th><th class="num">Qtd. Total</th><th class="num">Valor Total</th><th class="num">Farmácias</th></tr></thead>
             <tbody id="d-tbody-consol"></tbody>
           </table>
         </div>
@@ -461,6 +461,7 @@ let campanhaId=null;
 let _campanhaCache={};
 let _produtosCache=[];
 let _pedidosCache=[];
+let _itensCache=[];
 let _novaProdutos=[];
 let _editandoId=null;        // id da campanha em edição (null = criando nova)
 let _prodOriginais=[];       // ids dos produtos que já existiam no banco
@@ -548,6 +549,13 @@ async function carregarDetalhe(id){
   if(!camp)return;
   _campanhaCache=camp;_produtosCache=prods||[];_pedidosCache=peds||[];
 
+  // Busca os itens uma única vez e reaproveita nas tabelas e nos totais
+  _itensCache=[];
+  if(_pedidosCache.length){
+    const{data:its}=await sb.from('cc_pedido_itens').select('*').in('pedido_id',_pedidosCache.map(p=>p.id));
+    _itensCache=its||[];
+  }
+
   document.getElementById('d-nome').textContent=camp.nome;
   document.getElementById('d-nprod').textContent=_produtosCache.length;
   document.getElementById('d-nped').textContent=_pedidosCache.length;
@@ -560,9 +568,17 @@ async function carregarDetalhe(id){
   btnEnc.className=camp.status==='ativa'?'btn btn-danger btn-sm':'btn btn-outline btn-sm';
 
   document.getElementById('d-link').textContent=BASE+'?c='+camp.token;
+
+  // Totalizadores gerais da campanha
+  const totUnid=_itensCache.reduce((s,i)=>s+(i.quantidade||0),0);
+  const totValor=_itensCache.reduce((s,i)=>s+((i.quantidade||0)*(i.valor_unit||0)),0);
+  const totBonif=_itensCache.reduce((s,i)=>s+Math.floor(i.bonif_quantidade||0),0);
   document.getElementById('d-stats').innerHTML=
     `<div class="stat-card"><div class="stat-num">${_produtosCache.length}</div><div class="stat-label">Produtos</div></div>`+
-    `<div class="stat-card"><div class="stat-num">${_pedidosCache.length}</div><div class="stat-label">Pedidos</div></div>`;
+    `<div class="stat-card"><div class="stat-num">${_pedidosCache.length}</div><div class="stat-label">Pedidos</div></div>`+
+    `<div class="stat-card"><div class="stat-num">${totUnid}</div><div class="stat-label">Unidades</div></div>`+
+    (totBonif>0?`<div class="stat-card"><div class="stat-num" style="color:#7B5EA7">${totBonif}</div><div class="stat-label">🎁 Bonificadas</div></div>`:'')+
+    `<div class="stat-card" style="background:#15a563"><div class="stat-num" style="color:#fff;font-size:1.5rem">R$ ${fmtN(totValor)}</div><div class="stat-label" style="color:#d7f5e6">Valor Total</div></div>`;
 
   // Produtos (com info de bonificação)
   document.getElementById('d-tbody-prod').innerHTML=_produtosCache.length
@@ -588,13 +604,14 @@ async function renderPedidos(){
     wrap.innerHTML='<div style="text-align:center;padding:28px;color:#aaa;font-size:13px">📭 Nenhum pedido recebido ainda. Compartilhe o link com os associados!</div>';
     return;
   }
-  const pedIds=_pedidosCache.map(p=>p.id);
-  const{data:itens}=await sb.from('cc_pedido_itens').select('*').in('pedido_id',pedIds);
-  wrap.innerHTML=`<div style="overflow-x:auto;border-radius:8px;border:1px solid #e2e8f0">
-    <table class="ped-table"><thead><tr><th>Data/Hora</th><th>Razão Social</th><th>CNPJ</th><th>Itens</th><th>Unidades</th><th>Bonificações</th><th></th></tr></thead>
-    <tbody>`+_pedidosCache.map(p=>{
+  const itens=_itensCache;
+  let somaItens=0,somaUnid=0,somaValor=0;
+
+  const linhas=_pedidosCache.map(p=>{
       const pIt=(itens||[]).filter(i=>i.pedido_id===p.id);
       const totalUnid=pIt.reduce((s,i)=>s+(i.quantidade||0),0);
+      const totalValor=pIt.reduce((s,i)=>s+((i.quantidade||0)*(i.valor_unit||0)),0);
+      somaItens+=pIt.length;somaUnid+=totalUnid;somaValor+=totalValor;
       const bonifs=pIt.filter(i=>i.bonif_quantidade>0);
       const dt=new Date(p.created_at).toLocaleString('pt-BR');
       const bonifStr=bonifs.length
@@ -605,16 +622,28 @@ async function renderPedidos(){
         <td>${esc(p.razao_social)}</td><td class="mono">${esc(p.cnpj)}</td>
         <td style="text-align:center">${pIt.length}</td>
         <td style="text-align:center;font-weight:700;color:#15a563">${totalUnid}</td>
+        <td style="text-align:right;font-weight:800;color:#1B5E20;white-space:nowrap">R$ ${fmtN(totalValor)}</td>
         <td>${bonifStr}</td>
         <td><button class="btn btn-danger btn-sm" onclick="excluirPedido('${p.id}')">✕</button></td>
       </tr>`;
-    }).join('')+'</tbody></table></div>';
+    }).join('');
+
+  wrap.innerHTML=`<div style="overflow-x:auto;border-radius:8px;border:1px solid #e2e8f0">
+    <table class="ped-table"><thead><tr><th>Data/Hora</th><th>Razão Social</th><th>CNPJ</th><th>Itens</th><th>Unidades</th><th style="text-align:right">Valor do Pedido</th><th>Bonificações</th><th></th></tr></thead>
+    <tbody>${linhas}</tbody>
+    <tfoot><tr style="background:#e8f5e9;border-top:2px solid #15a563">
+      <td colspan="3" style="font-weight:800;color:#1B5E20">TOTAL — ${_pedidosCache.length} pedido(s)</td>
+      <td style="text-align:center;font-weight:800;color:#1B5E20">${somaItens}</td>
+      <td style="text-align:center;font-weight:800;color:#1B5E20">${somaUnid}</td>
+      <td style="text-align:right;font-weight:800;color:#1B5E20;font-size:15px;white-space:nowrap">R$ ${fmtN(somaValor)}</td>
+      <td colspan="2"></td>
+    </tr></tfoot>
+    </table></div>`;
 }
 
 async function renderConsolidado(){
   if(!_pedidosCache.length){document.getElementById('d-consol-section').style.display='none';return;}
-  const pedIds=_pedidosCache.map(p=>p.id);
-  const{data:itens}=await sb.from('cc_pedido_itens').select('*').in('pedido_id',pedIds);
+  const itens=_itensCache;
   if(!itens?.length){document.getElementById('d-consol-section').style.display='none';return;}
 
   // Agrupa produtos principais
@@ -622,15 +651,23 @@ async function renderConsolidado(){
   itens.forEach(it=>{
     if(!it.quantidade||it.quantidade<=0)return;
     const key=it.produto_id;
-    if(!mapProd[key])mapProd[key]={descricao:it.descricao,ean:it.ean,total:0,farms:new Set()};
+    if(!mapProd[key])mapProd[key]={descricao:it.descricao,ean:it.ean,total:0,valor:0,farms:new Set()};
     mapProd[key].total+=it.quantidade;
+    mapProd[key].valor+=it.quantidade*(it.valor_unit||0);
     const ped=_pedidosCache.find(p=>p.id===it.pedido_id);
     if(ped)mapProd[key].farms.add(ped.cnpj);
   });
   const dadosProd=Object.values(mapProd).sort((a,b)=>a.descricao.localeCompare(b.descricao));
+  const totQtd=dadosProd.reduce((s,d)=>s+d.total,0);
+  const totVal=dadosProd.reduce((s,d)=>s+d.valor,0);
   document.getElementById('d-tbody-consol').innerHTML=dadosProd.map(d=>
-    `<tr><td>${esc(d.descricao)}</td><td class="mono">${esc(d.ean)}</td><td class="num">${d.total}</td><td class="num">${d.farms.size}</td></tr>`
-  ).join('');
+    `<tr><td>${esc(d.descricao)}</td><td class="mono">${esc(d.ean)}</td><td class="num">${d.total}</td><td class="num" style="color:#1B5E20">R$ ${fmtN(d.valor)}</td><td class="num">${d.farms.size}</td></tr>`
+  ).join('')+
+  `<tr style="background:#e8f5e9;border-top:2px solid #15a563">
+    <td colspan="2" style="font-weight:800;color:#1B5E20">TOTAL GERAL</td>
+    <td class="num" style="font-weight:800;color:#1B5E20">${totQtd}</td>
+    <td class="num" style="font-weight:800;color:#1B5E20;font-size:15px">R$ ${fmtN(totVal)}</td>
+    <td></td></tr>`;
 
   // Agrupa bonificações
   const mapBonif={};
@@ -659,8 +696,9 @@ async function excluirPedido(id){
   await sb.from('cc_pedido_itens').delete().eq('pedido_id',id);
   await sb.from('cc_pedidos').delete().eq('id',id);
   _pedidosCache=_pedidosCache.filter(p=>p.id!==id);
+  _itensCache=_itensCache.filter(i=>i.pedido_id!==id);
   document.getElementById('d-nped').textContent=_pedidosCache.length;
-  await renderPedidos();await renderConsolidado();
+  await carregarDetalhe(campanhaId);
   toast('Pedido excluído.','ok');
 }
 
@@ -1290,6 +1328,12 @@ const XS={
   numBonif:{font:{bold:true,sz:12,color:{rgb:'7B5EA7'}},fill:{fgColor:{rgb:'FFFFFF'}},alignment:{horizontal:'right',vertical:'center'}},
   numBonifAlt:{font:{bold:true,sz:12,color:{rgb:'7B5EA7'}},fill:{fgColor:{rgb:'F5F3FF'}},alignment:{horizontal:'right',vertical:'center'}},
   dadoBonifAlt:{font:{sz:11},fill:{fgColor:{rgb:'F5F3FF'}},alignment:{vertical:'center'}},
+  // Subtotal por farmácia
+  subCab:{font:{bold:true,sz:11,color:{rgb:'1B5E20'}},fill:{fgColor:{rgb:'D7F0DE'}},alignment:{vertical:'center'},border:{top:{style:'thin',color:{rgb:'15a563'}}}},
+  subNum:{font:{bold:true,sz:11,color:{rgb:'1B5E20'}},fill:{fgColor:{rgb:'D7F0DE'}},alignment:{horizontal:'right',vertical:'center'},border:{top:{style:'thin',color:{rgb:'15a563'}}}},
+  // Total geral
+  totCab:{font:{bold:true,sz:13,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1B5E20'}},alignment:{vertical:'center'}},
+  totNum:{font:{bold:true,sz:13,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1B5E20'}},alignment:{horizontal:'right',vertical:'center'}},
 };
 function sc(v,s){return {v,s};}
 function applySheetStyle(ws,noCols){
@@ -1307,8 +1351,9 @@ async function exportarConsolidado(){
   (itens||[]).forEach(it=>{
     if(it.quantidade>0){
       const k=it.produto_id;
-      if(!mapProd[k])mapProd[k]={descricao:it.descricao,ean:it.ean,total:0};
+      if(!mapProd[k])mapProd[k]={descricao:it.descricao,ean:it.ean,total:0,valor:0};
       mapProd[k].total+=it.quantidade;
+      mapProd[k].valor+=it.quantidade*(it.valor_unit||0);
     }
     if(it.bonif_quantidade>0&&it.bonif_descricao){
       const k=it.bonif_ean||it.bonif_descricao;
@@ -1324,33 +1369,48 @@ async function exportarConsolidado(){
   const prodList=Object.values(mapProd).sort((a,b)=>a.descricao.localeCompare(b.descricao));
   const bonifList=Object.values(mapBonif).sort((a,b)=>a.descricao.localeCompare(b.descricao));
 
+  const NC=4;
+  const vaziaC=()=>Array(NC).fill(sc('',XS.vazio));
+  const gQtd=prodList.reduce((s,d)=>s+d.total,0);
+  const gValor=prodList.reduce((s,d)=>s+d.valor,0);
+
   const rows1=[
-    [sc(_campanhaCache.nome+' — PEDIDO CONSOLIDADO',XS.titulo),sc('',XS.titulo),sc('',XS.titulo)],
-    [sc('Gerado em: '+new Date().toLocaleString('pt-BR'),XS.sub),sc('',XS.sub),sc('',XS.sub)],
-    [sc('',XS.vazio),sc('',XS.vazio),sc('',XS.vazio)],
-    [sc('Descricao do Produto',XS.cab),sc('Codigo EAN',XS.cab),sc('Quantidade Total',XS.cabNum)],
-    ...prodList.map((d,i)=>[sc(d.descricao,i%2?XS.dadoAlt:XS.dado),sc(d.ean,i%2?XS.dadoAlt:XS.dado),sc(d.total,i%2?XS.numAlt:XS.num)]),
+    [sc(_campanhaCache.nome+' — PEDIDO CONSOLIDADO',XS.titulo),...Array(NC-1).fill(sc('',XS.titulo))],
+    [sc('Gerado em: '+new Date().toLocaleString('pt-BR'),XS.sub),...Array(NC-1).fill(sc('',XS.sub))],
+    vaziaC(),
+    [sc('Descricao do Produto',XS.cab),sc('Codigo EAN',XS.cab),sc('Quantidade Total',XS.cabNum),sc('Valor Total (R$)',XS.cabNum)],
+    ...prodList.map((d,i)=>[
+      sc(d.descricao,i%2?XS.dadoAlt:XS.dado),
+      sc(d.ean,i%2?XS.dadoAlt:XS.dado),
+      sc(d.total,i%2?XS.numAlt:XS.num),
+      sc(Number(d.valor.toFixed(2)),i%2?XS.numAlt:XS.num)
+    ]),
+    [sc('TOTAL GERAL',XS.totCab),sc('',XS.totCab),sc(gQtd,XS.totNum),sc(Number(gValor.toFixed(2)),XS.totNum)]
   ];
 
+  const fimProd=rows1.length-1; // linha do total geral
+
   if(bonifList.length){
-    rows1.push([sc('',XS.vazio),sc('',XS.vazio),sc('',XS.vazio)]);
-    rows1.push([sc('BONIFICACOES GERADAS',XS.secBonif),sc('',XS.secBonif),sc('',XS.secBonif)]);
-    rows1.push([sc('Produto Bonificado',XS.cabBonif),sc('Codigo EAN',XS.cabBonif),sc('Qtd. Total',XS.cabBonifNum)]);
+    rows1.push(vaziaC());
+    rows1.push([sc('BONIFICACOES GERADAS',XS.secBonif),...Array(NC-1).fill(sc('',XS.secBonif))]);
+    rows1.push([sc('Produto Bonificado',XS.cabBonif),sc('Codigo EAN',XS.cabBonif),sc('Qtd. Total',XS.cabBonifNum),sc('',XS.cabBonif)]);
     bonifList.forEach((d,i)=>rows1.push([
       sc(d.descricao,i%2?XS.dadoBonifAlt:XS.dado),
       sc(d.ean,i%2?XS.dadoBonifAlt:XS.dado),
-      sc(Math.floor(d.total),i%2?XS.numBonifAlt:XS.numBonif)
+      sc(Math.floor(d.total),i%2?XS.numBonifAlt:XS.numBonif),
+      sc('',i%2?XS.dadoBonifAlt:XS.dado)
     ]));
   }
 
   const s1=XLSX.utils.aoa_to_sheet(rows1);
-  s1['!merges']=[{s:{r:0,c:0},e:{r:0,c:2}},{s:{r:1,c:0},e:{r:1,c:2}}];
+  s1['!merges']=[{s:{r:0,c:0},e:{r:0,c:NC-1}},{s:{r:1,c:0},e:{r:1,c:NC-1}},{s:{r:fimProd,c:0},e:{r:fimProd,c:1}}];
   if(bonifList.length){
-    const bRow=4+prodList.length+1;
-    s1['!merges'].push({s:{r:bRow,c:0},e:{r:bRow,c:2}});
+    const bRow=fimProd+2;
+    s1['!merges'].push({s:{r:bRow,c:0},e:{r:bRow,c:NC-1}});
   }
   s1['!rows']=[{hpt:24},{hpt:16}];
-  applySheetStyle(s1,[{wch:55},{wch:20},{wch:18}]);
+  fmtMoeda(s1,[3],4,fimProd);
+  applySheetStyle(s1,[{wch:55},{wch:20},{wch:18},{wch:18}]);
   XLSX.utils.book_append_sheet(wb,s1,'Pedido Fornecedor');
   XLSX.writeFile(wb,'Pedido_Consolidado_'+nm+'.xlsx');
 }
@@ -1362,43 +1422,87 @@ async function exportarDetalhado(){
   const nm=(_campanhaCache.nome||'Coopefarma').replace(/[^a-zA-Z0-9]/g,'_');
   const wb=XLSX.utils.book_new();
 
+  const NC=10; // nº de colunas
   const cabDet=[
     sc('Data/Hora',XS.cab),sc('Razao Social',XS.cab),sc('CNPJ',XS.cab),
     sc('Descricao do Produto',XS.cab),sc('Codigo EAN',XS.cab),
-    sc('Quantidade',XS.cabNum),sc('Bonificacao (produto)',XS.cab),sc('Bonificacao (qtd.)',XS.cabNum)
+    sc('Quantidade',XS.cabNum),sc('Valor Unit. (R$)',XS.cabNum),sc('Valor Total (R$)',XS.cabNum),
+    sc('Bonificacao (produto)',XS.cab),sc('Bonificacao (qtd.)',XS.cabNum)
   ];
 
   const dataRows=[];
+  let gQtd=0,gValor=0,gBonif=0;
+
   _pedidosCache.forEach(ped=>{
     const dt=new Date(ped.created_at).toLocaleString('pt-BR');
-    (itens||[]).filter(i=>i.pedido_id===ped.id&&i.quantidade>0).forEach(it=>{
+    const pIt=(itens||[]).filter(i=>i.pedido_id===ped.id&&i.quantidade>0);
+    if(!pIt.length)return;
+    let sQtd=0,sValor=0,sBonif=0;
+
+    pIt.forEach(it=>{
       const i=dataRows.length;
       const s=i%2?XS.dadoAlt:XS.dado;
       const sn=i%2?XS.numAlt:XS.num;
+      const vTot=(it.quantidade||0)*(it.valor_unit||0);
+      const qBon=it.bonif_quantidade?Math.floor(it.bonif_quantidade):0;
+      sQtd+=it.quantidade||0;sValor+=vTot;sBonif+=qBon;
       dataRows.push([
         sc(dt,s),sc(ped.razao_social,s),sc(ped.cnpj,s),
         sc(it.descricao,s),sc(it.ean,s),
         sc(it.quantidade,sn),
+        sc(it.valor_unit!=null?Number(it.valor_unit):'',sn),
+        sc(Number(vTot.toFixed(2)),sn),
         sc(it.bonif_descricao||'',s),
-        sc(it.bonif_quantidade?Math.floor(it.bonif_quantidade):'',sn)
+        sc(qBon||'',sn)
       ]);
     });
+
+    // Subtotal da farmácia
+    dataRows.push([
+      sc('SUBTOTAL — '+ped.razao_social,XS.subCab),sc('',XS.subCab),sc('',XS.subCab),
+      sc('',XS.subCab),sc('',XS.subCab),
+      sc(sQtd,XS.subNum),sc('',XS.subNum),sc(Number(sValor.toFixed(2)),XS.subNum),
+      sc('',XS.subCab),sc(sBonif||'',XS.subNum)
+    ]);
+    dataRows.push(Array(NC).fill(sc('',XS.vazio)));
+    gQtd+=sQtd;gValor+=sValor;gBonif+=sBonif;
   });
 
+  // Total geral da campanha
+  dataRows.push([
+    sc('TOTAL GERAL — '+_pedidosCache.length+' pedido(s)',XS.totCab),sc('',XS.totCab),sc('',XS.totCab),
+    sc('',XS.totCab),sc('',XS.totCab),
+    sc(gQtd,XS.totNum),sc('',XS.totNum),sc(Number(gValor.toFixed(2)),XS.totNum),
+    sc('',XS.totCab),sc(gBonif||'',XS.totNum)
+  ]);
+
   const rows=[
-    [sc(_campanhaCache.nome+' — PEDIDOS DETALHADOS',XS.titulo),...Array(7).fill(sc('',XS.titulo))],
-    [sc('Gerado em: '+new Date().toLocaleString('pt-BR'),XS.sub),...Array(7).fill(sc('',XS.sub))],
-    Array(8).fill(sc('',XS.vazio)),
+    [sc(_campanhaCache.nome+' — PEDIDOS DETALHADOS',XS.titulo),...Array(NC-1).fill(sc('',XS.titulo))],
+    [sc('Gerado em: '+new Date().toLocaleString('pt-BR'),XS.sub),...Array(NC-1).fill(sc('',XS.sub))],
+    Array(NC).fill(sc('',XS.vazio)),
     cabDet,
     ...dataRows
   ];
 
   const s=XLSX.utils.aoa_to_sheet(rows);
-  s['!merges']=[{s:{r:0,c:0},e:{r:0,c:7}},{s:{r:1,c:0},e:{r:1,c:7}}];
+  s['!merges']=[{s:{r:0,c:0},e:{r:0,c:NC-1}},{s:{r:1,c:0},e:{r:1,c:NC-1}}];
   s['!rows']=[{hpt:24},{hpt:16}];
-  applySheetStyle(s,[{wch:20},{wch:42},{wch:20},{wch:50},{wch:16},{wch:12},{wch:32},{wch:16}]);
+  // Formato de moeda nas colunas de valor
+  fmtMoeda(s,[6,7],4,rows.length-1);
+  applySheetStyle(s,[{wch:20},{wch:42},{wch:20},{wch:50},{wch:16},{wch:12},{wch:15},{wch:16},{wch:32},{wch:16}]);
   XLSX.utils.book_append_sheet(wb,s,'Pedidos Detalhados');
   XLSX.writeFile(wb,'Pedidos_Detalhados_'+nm+'.xlsx');
+}
+
+// Aplica formato de moeda R$ nas colunas indicadas
+function fmtMoeda(ws,cols,rIni,rFim){
+  for(let r=rIni;r<=rFim;r++){
+    cols.forEach(c=>{
+      const ref=XLSX.utils.encode_cell({r,c});
+      const cell=ws[ref];
+      if(cell&&typeof cell.v==='number')cell.z='R$ #,##0.00';
+    });
+  }
 }
 
 // ─────────────────────────────
