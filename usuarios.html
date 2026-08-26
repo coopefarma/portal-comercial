@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Usuários — Comercial Coopefarma</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
+.btn{padding:9px 18px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;font-family:'Inter',sans-serif}
+.btn-primary{background:#15a563;color:#fff}.btn-primary:hover{background:#0f8a52}
+.btn-primary:disabled{background:#aaa;cursor:not-allowed}
+.btn-danger{background:#e8112d;color:#fff}.btn-danger:hover{background:#c00d26}
+.btn-outline{background:#fff;color:#444;border:1.5px solid #ddd}.btn-outline:hover{border-color:#15a563;color:#15a563}
+.btn-sm{padding:6px 12px;font-size:12px}
+
+/* ── LOGIN ── */
+#tela-login{display:none;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0d1b2a,#1b4332)}
+.login-box{background:#fff;border-radius:16px;padding:40px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-logo{text-align:center;margin-bottom:28px}.login-logo img{height:55px;object-fit:contain}
+.login-logo h2{font-family:'Poppins',sans-serif;font-size:17px;color:#15a563;margin-top:10px}
+.login-logo p{color:#888;font-size:12px}
+.login-box label{font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:5px}
+.login-box input{width:100%;padding:11px 14px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;margin-bottom:14px;font-family:'Inter',sans-serif}
+.login-box input:focus{border-color:#15a563;outline:none}
+.login-erro{color:#e8112d;font-size:12px;margin-bottom:10px;text-align:center;min-height:18px}
+
+/* ── SEM PERMISSÃO ── */
+#tela-negado{display:none;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0d1b2a,#1b4332);padding:24px}
+#tela-negado .box{background:#fff;border-radius:16px;padding:40px;max-width:420px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+#tela-negado .box h2{font-family:'Poppins',sans-serif;font-size:18px;margin-bottom:10px}
+#tela-negado .box p{color:#64748b;font-size:13px;margin-bottom:22px;line-height:1.6}
+
+/* ── APP ── */
+#tela-app{display:none;flex-direction:column;min-height:100vh}
+.topbar{background:#fff;border-bottom:1px solid #e8ecf1;padding:12px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.topbar img{height:36px;object-fit:contain}
+.topbar .marca{font-family:'Poppins',sans-serif;font-weight:700;font-size:15px}
+.topbar .dir{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.topbar .quem{font-size:12px;color:#64748b}
+.wrap{padding:26px 24px;max-width:940px;width:100%;margin:0 auto}
+.card{background:#fff;border-radius:14px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:22px}
+.card h3{font-family:'Poppins',sans-serif;font-size:15px;margin-bottom:4px}
+.card .ajuda{font-size:12px;color:#64748b;margin-bottom:18px;line-height:1.6}
+.linha{display:flex;gap:14px;flex-wrap:wrap}
+.campo{flex:1;min-width:190px;margin-bottom:14px}
+.campo label{font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:5px}
+.campo input{width:100%;padding:11px 14px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:'Inter',sans-serif}
+.campo input:focus{border-color:#15a563;outline:none}
+.aviso-senha{font-size:11px;color:#b8860b;margin-top:-8px;margin-bottom:12px;min-height:15px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;padding:10px 12px;border-bottom:2px solid #eef1f5;white-space:nowrap}
+td{padding:12px;border-bottom:1px solid #f1f4f8;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:#e8f5ee;color:#15a563;margin-left:6px}
+.tag-cinza{background:#f1f4f8;color:#64748b}
+.acoes{display:flex;gap:6px;justify-content:flex-end}
+.vazio{text-align:center;color:#94a3b8;padding:26px;font-size:13px}
+
+/* ── MODAL ── */
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:20px;z-index:60}
+#modal .box{background:#fff;border-radius:14px;padding:28px;width:100%;max-width:380px}
+#modal h3{font-family:'Poppins',sans-serif;font-size:16px;margin-bottom:6px}
+#modal .quem-senha{font-size:12px;color:#64748b;margin-bottom:18px;word-break:break-all}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);background:#1a1a2e;color:#fff;
+  padding:13px 22px;border-radius:10px;font-size:13px;opacity:0;transition:all .3s;z-index:90;max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+#toast.err{background:#e8112d}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ LOGIN ═══════════ -->
+<div id="tela-login">
+  <div class="login-box">
+    <div class="login-logo">
+      <img src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
+      <h2>Comercial</h2>
+      <p>Gestão de acessos</p>
+    </div>
+    <label>E-mail</label>
+    <input type="email" id="l-email" placeholder="seu@email.com" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('l-senha').focus()"/>
+    <label>Senha</label>
+    <input type="password" id="l-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"/>
+    <div class="login-erro" id="l-erro"></div>
+    <button class="btn btn-primary" style="width:100%;padding:12px" onclick="fazerLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- ═══════════ SEM PERMISSÃO ═══════════ -->
+<div id="tela-negado">
+  <div class="box">
+    <div style="font-size:38px;margin-bottom:10px">🔒</div>
+    <h2>Acesso restrito</h2>
+    <p>Esta tela é usada para criar e remover acessos do portal, e está liberada apenas para os administradores.<br><br>Você entrou como <b id="negado-email"></b>.</p>
+    <button class="btn btn-outline" onclick="location.href='index.html'">Voltar ao portal</button>
+    <button class="btn btn-primary" onclick="fazerLogout()">Sair</button>
+  </div>
+</div>
+
+<!-- ═══════════ APP ═══════════ -->
+<div id="tela-app">
+  <div class="topbar">
+    <img src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
+    <span class="marca">Usuários do Portal Comercial</span>
+    <div class="dir">
+      <span class="quem" id="u-email"></span>
+      <button class="btn btn-outline btn-sm" onclick="location.href='index.html'">← Portal</button>
+      <button class="btn btn-outline btn-sm" onclick="fazerLogout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <div class="card">
+      <h3>Novo acesso</h3>
+      <div class="ajuda">
+        O usuário é criado já liberado — não precisa confirmar nada por e-mail. Com esse login ele entra na
+        <b>Compra Coletiva</b> e no <b>Formulário</b>, com acesso total às duas ferramentas.
+      </div>
+      <div class="linha">
+        <div class="campo">
+          <label>E-mail</label>
+          <input type="email" id="n-email" placeholder="pessoa@coopefarma.com" autocomplete="off"/>
+        </div>
+        <div class="campo">
+          <label>Senha</label>
+          <input type="text" id="n-senha" placeholder="mínimo 6 caracteres" autocomplete="off" oninput="avaliarSenha()"/>
+        </div>
+        <div class="campo">
+          <label>Repetir a senha</label>
+          <input type="text" id="n-senha2" placeholder="digite de novo" autocomplete="off"/>
+        </div>
+      </div>
+      <div class="aviso-senha" id="n-aviso"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="btn-criar" onclick="criarUsuario()">Criar acesso</button>
+        <button class="btn btn-outline" onclick="sugerirSenha()">Sugerir senha forte</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Acessos ativos <span id="qtd" class="tag tag-cinza"></span></h3>
+      <div class="ajuda">Quem aparece aqui consegue entrar no portal. Remover apaga o acesso na hora.</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>E-mail</th>
+              <th>Criado em</th>
+              <th>Último acesso</th>
+              <th style="text-align:right">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="lista">
+            <tr><td colspan="4" class="vazio">Carregando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ MODAL TROCAR SENHA ═══════════ -->
+<div id="modal">
+  <div class="box">
+    <h3>Trocar a senha</h3>
+    <div class="quem-senha" id="m-quem"></div>
+    <div class="campo">
+      <label>Nova senha</label>
+      <input type="text" id="m-senha" placeholder="mínimo 6 caracteres" autocomplete="off"/>
+    </div>
+    <div class="login-erro" id="m-erro"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarSenha()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SB_URL='https://uofcbqqbubvvltnzvhsx.supabase.co';
+const SB_KEY='sb_publishable_SQ0x7RDU9B0u5lqvn2pr1Q_4NwoJMY9';
+const {createClient}=supabase;
+const sb=createClient(SB_URL,SB_KEY);
+
+let _meuEmail='';
+let _trocandoId=null;
+
+// ── INÍCIO ──────────────────────────────────────────────
+(async function init(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){ abrirPainel(session.user.email); }
+  else { document.getElementById('tela-login').style.display='flex'; }
+})();
+
+async function fazerLogin(){
+  const email=document.getElementById('l-email').value.trim();
+  const senha=document.getElementById('l-senha').value;
+  document.getElementById('l-erro').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email,password:senha});
+  if(error){document.getElementById('l-erro').textContent='E-mail ou senha incorretos.';return;}
+  document.getElementById('tela-login').style.display='none';
+  abrirPainel(data.user.email);
+}
+
+async function fazerLogout(){ await sb.auth.signOut(); location.reload(); }
+
+async function abrirPainel(email){
+  _meuEmail=(email||'').toLowerCase();
+  document.getElementById('u-email').textContent=email;
+  document.getElementById('negado-email').textContent=email;
+  document.getElementById('tela-login').style.display='none';
+  document.getElementById('tela-app').style.display='flex';
+  await listar();
+}
+
+function semPermissao(){
+  document.getElementById('tela-app').style.display='none';
+  document.getElementById('tela-login').style.display='none';
+  document.getElementById('tela-negado').style.display='flex';
+}
+
+// ── CHAMADAS À FUNÇÃO DO SERVIDOR ───────────────────────
+async function api(metodo,corpo){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){ location.reload(); return {erro:'Sessão expirada.'}; }
+  const opcoes={method:metodo,headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'}};
+  if(corpo) opcoes.body=JSON.stringify(corpo);
+  let r,d;
+  try{ r=await fetch('/api/usuarios',opcoes); }
+  catch(e){ return {erro:'Não foi possível falar com o servidor.'}; }
+  try{ d=await r.json(); }catch(e){ d={}; }
+  if(r.status===403){ semPermissao(); return {erro:d.erro||'Sem permissão.',negado:true}; }
+  if(!r.ok) return {erro:d.erro||'Erro inesperado.'};
+  return d;
+}
+
+// ── LISTAR ──────────────────────────────────────────────
+async function listar(){
+  const d=await api('GET');
+  const tb=document.getElementById('lista');
+  if(d.negado) return;
+  if(d.erro){ tb.innerHTML='<tr><td colspan="4" class="vazio">'+d.erro+'</td></tr>'; document.getElementById('qtd').textContent=''; return; }
+  const us=d.usuarios||[];
+  document.getElementById('qtd').textContent=us.length;
+  if(!us.length){ tb.innerHTML='<tr><td colspan="4" class="vazio">Nenhum usuário cadastrado.</td></tr>'; return; }
+  tb.innerHTML=us.map(u=>{
+    const souEu=(u.email||'').toLowerCase()===_meuEmail;
+    return '<tr>'+
+      '<td><b>'+escapar(u.email)+'</b>'+
+        (u.admin?'<span class="tag">admin</span>':'')+
+        (souEu?'<span class="tag tag-cinza">você</span>':'')+'</td>'+
+      '<td>'+dataBr(u.criado_em)+'</td>'+
+      '<td>'+(u.ultimo_acesso?dataBr(u.ultimo_acesso):'<span style="color:#94a3b8">nunca entrou</span>')+'</td>'+
+      '<td><div class="acoes">'+
+        '<button class="btn btn-outline btn-sm" onclick="abrirModal(\''+u.id+'\',\''+escapar(u.email)+'\')">🔑 Senha</button>'+
+        (souEu?'':'<button class="btn btn-danger btn-sm" onclick="remover(\''+u.id+'\',\''+escapar(u.email)+'\')">Remover</button>')+
+      '</div></td>'+
+    '</tr>';
+  }).join('');
+}
+
+// ── CRIAR ───────────────────────────────────────────────
+async function criarUsuario(){
+  const email=document.getElementById('n-email').value.trim();
+  const senha=document.getElementById('n-senha').value;
+  const senha2=document.getElementById('n-senha2').value;
+  if(!email){ toast('Informe o e-mail.','err'); return; }
+  if(senha.length<6){ toast('A senha precisa ter pelo menos 6 caracteres.','err'); return; }
+  if(senha!==senha2){ toast('As duas senhas não são iguais.','err'); return; }
+
+  const btn=document.getElementById('btn-criar');
+  btn.disabled=true; btn.textContent='Criando…';
+  const d=await api('POST',{email,senha});
+  btn.disabled=false; btn.textContent='Criar acesso';
+
+  if(d.erro){ toast(d.erro,'err'); return; }
+  document.getElementById('n-email').value='';
+  document.getElementById('n-senha').value='';
+  document.getElementById('n-senha2').value='';
+  document.getElementById('n-aviso').textContent='';
+  toast('Acesso criado para '+email);
+  listar();
+}
+
+// ── TROCAR SENHA ────────────────────────────────────────
+function abrirModal(id,email){
+  _trocandoId=id;
+  document.getElementById('m-quem').textContent=email;
+  document.getElementById('m-senha').value='';
+  document.getElementById('m-erro').textContent='';
+  document.getElementById('modal').style.display='flex';
+}
+function fecharModal(){ document.getElementById('modal').style.display='none'; _trocandoId=null; }
+
+async function salvarSenha(){
+  const senha=document.getElementById('m-senha').value;
+  if(senha.length<6){ document.getElementById('m-erro').textContent='Mínimo de 6 caracteres.'; return; }
+  const d=await api('PUT',{id:_trocandoId,senha});
+  if(d.erro){ document.getElementById('m-erro').textContent=d.erro; return; }
+  fecharModal();
+  toast('Senha alterada.');
+}
+
+// ── REMOVER ─────────────────────────────────────────────
+async function remover(id,email){
+  if(!confirm('Remover o acesso de '+email+'?\n\nEssa pessoa deixa de conseguir entrar no portal.')) return;
+  const d=await api('DELETE',{id,email});
+  if(d.erro){ toast(d.erro,'err'); return; }
+  toast('Acesso removido.');
+  listar();
+}
+
+// ── APOIO ───────────────────────────────────────────────
+function avaliarSenha(){
+  const s=document.getElementById('n-senha').value;
+  const av=document.getElementById('n-aviso');
+  const fracas=['123456','1234567','12345678','123456789','senha','password','123123','abc123','coopefarma','qwerty','111111'];
+  if(!s){ av.textContent=''; return; }
+  if(s.length<6){ av.textContent='⚠️ Curta demais — o Supabase exige pelo menos 6 caracteres.'; return; }
+  if(fracas.includes(s.toLowerCase())){ av.textContent='⚠️ Essa é uma das senhas mais testadas que existem. Use o botão "Sugerir senha forte".'; return; }
+  if(s.length<10 || !/[0-9]/.test(s) || !/[a-zA-Z]/.test(s)){ av.textContent='Dica: misture letras e números e use 10 caracteres ou mais.'; return; }
+  av.textContent='';
+}
+
+function sugerirSenha(){
+  const letras='abcdefghijkmnopqrstuvwxyz';
+  const maius='ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const nums='23456789';
+  const todos=letras+maius+nums;
+  const r=n=>{const a=new Uint32Array(n);crypto.getRandomValues(a);return a;};
+  const v=r(12);
+  let s=maius[v[0]%maius.length]+letras[v[1]%letras.length]+nums[v[2]%nums.length];
+  for(let i=3;i<12;i++) s+=todos[v[i]%todos.length];
+  document.getElementById('n-senha').value=s;
+  document.getElementById('n-senha2').value=s;
+  avaliarSenha();
+  toast('Senha gerada — copie antes de sair da tela.');
+}
+
+function dataBr(iso){
+  if(!iso) return '—';
+  const d=new Date(iso);
+  if(isNaN(d)) return '—';
+  return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function escapar(t){
+  return (t||'').toString().replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function toast(msg,tipo='ok'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='show '+(tipo==='err'?'err':'ok');
+  setTimeout(()=>{el.className='';},3500);
+}
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') fecharModal(); });
+</script>
+</body>
+</html>
