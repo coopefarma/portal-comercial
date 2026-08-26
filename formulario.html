@@ -338,8 +338,46 @@ function toast(msg,tipo='ok'){
   el.textContent=msg;el.className='show '+(tipo==='err'?'err':'ok');
   setTimeout(()=>{el.className='';},3000);
 }
+function copiarTexto(txt){
+  try{
+    if(navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(txt);
+  }catch(e){}
+  return new Promise((ok,falha)=>{
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.select();
+      const deu=document.execCommand('copy');
+      document.body.removeChild(ta);
+      deu?ok():falha();
+    }catch(e){falha(e);}
+  });
+}
 function copiarLink(token){
-  navigator.clipboard.writeText(BASE+'?fc='+token).then(()=>toast('Link copiado!','ok'));
+  const link=BASE+'?fc='+token;
+  copiarTexto(link).then(()=>toast('Link copiado!','ok'))
+    .catch(()=>{prompt('Copie o link abaixo (Ctrl+C):',link);});
+}
+
+/* Gera um link novo a partir de um modelo salvo, sem passar pelo editor.
+   O link ja nasce na lista "Links enviados", como Aguardando resposta. */
+async function gerarLinkDoModelo(id){
+  const{data:m,error}=await sb.from('cm_modelos').select('nome,perguntas').eq('id',id).single();
+  if(error||!m){toast('Erro ao buscar o modelo: '+(error?error.message:''),'err');return;}
+  if(!m.perguntas||!m.perguntas.length){toast('Esse modelo esta sem perguntas.','err');return;}
+  const dest=prompt('Para quem e este formulario?\n\n(nome da farmacia ou da pessoa — serve para voce identificar na lista de Links enviados. Pode deixar em branco.)','');
+  if(dest===null)return;
+  const token=crypto.randomUUID().replace(/-/g,'').substring(0,16);
+  const{data,error:e2}=await sb.from('cm_formularios')
+    .insert({titulo:m.nome,destinatario_nome:dest.trim()||null,token,perguntas:m.perguntas,status:'aberto'})
+    .select().single();
+  if(e2){toast('Erro ao gerar o link: '+e2.message,'err');return;}
+  const link=BASE+'?fc='+data.token;
+  copiarTexto(link)
+    .then(()=>toast('Link criado e copiado! Ja esta em Links enviados.','ok'))
+    .catch(()=>{prompt('Link criado! Copie abaixo (Ctrl+C):',link);});
+  carregarLista();
+  carregarListaModelos();
 }
 
 /* ─────────────────────────────
@@ -424,7 +462,8 @@ async function carregarListaModelos(){
       </div>
       <div class="f-card-meta">${(m.perguntas?.length||0)} pergunta(s) · salvo em ${fmtData(m.created_at)}</div>
       <div class="f-card-actions">
-        <button class="btn btn-primary btn-sm" onclick="usarModeloParaNovo('${m.id}')">✏️ Abrir/editar</button>
+        <button class="btn btn-primary btn-sm" onclick="gerarLinkDoModelo('${m.id}')">🔗 Gerar e copiar link</button>
+        <button class="btn btn-outline btn-sm" onclick="usarModeloParaNovo('${m.id}')">✏️ Abrir/editar</button>
         ${excluirBtn}
       </div>
     </div>`;
