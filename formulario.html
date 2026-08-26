@@ -142,6 +142,16 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
 .success-screen p{color:#666;line-height:1.7}
 
 @media(max-width:768px){.topbar-nav{display:none}.main{padding:16px}}
+
+/* grupos do painel */
+.painel-aviso{background:#fff8e1;border:1px solid #ffe08a;color:#7a5c00;border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.6;margin-bottom:18px}
+.painel-grupo{margin-bottom:28px}
+.painel-grupo-titulo{font-family:'Poppins',sans-serif;font-weight:700;font-size:14px;color:#1B5E20;margin-bottom:2px}
+.painel-grupo-meta{font-size:12px;color:#64748b;margin-bottom:10px}
+/* arte do topo no editor */
+.banner-linha{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.banner-status{font-size:12px;color:#64748b}
+#n-banner-prev{display:none;max-width:100%;margin-top:12px;border-radius:10px;border:1px solid #e8ecf1}
 </style>
 </head>
 <body>
@@ -150,7 +160,7 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
      PREENCHIMENTO (associado/prospect)
 ════════════════════════════════════════════════ -->
 <div id="tela-preench">
-  <img class="topo-banner" src="banner-topo.jpg" alt="Coopefarma" onerror="this.style.display='none'"/>
+  <img class="topo-banner" id="pr-banner" src="banner-topo.jpg" alt="Coopefarma" onerror="this.style.display='none'"/>
   <div class="form-container">
     <div id="pr-main">
       <div class="form-alert form-alert-err" id="pr-alerta"></div>
@@ -244,6 +254,16 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
         <h3>📝 Identificação</h3>
         <div class="field"><label>Título do formulário</label><input type="text" id="n-titulo"/></div>
         <div class="field"><label>Nome do destinatário (referência interna)</label><input type="text" id="n-dest" placeholder="Ex.: João da Farmácia Central"/></div>
+        <div class="field">
+          <label>Arte do topo (opcional)</label>
+          <div class="banner-linha">
+            <input type="file" id="n-banner-file" accept="image/*" style="display:none" onchange="escolherBanner(this)"/>
+            <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('n-banner-file').click()">🖼️ Escolher imagem</button>
+            <button type="button" class="btn btn-outline btn-sm" id="n-banner-remover" style="display:none" onclick="removerBanner()">Remover arte</button>
+            <span class="banner-status" id="n-banner-status">Sem arte — o link vai usar o banner padrão da Coopefarma</span>
+          </div>
+          <img id="n-banner-prev" alt="Prévia da arte"/>
+        </div>
       </div>
 
       <div class="form-section">
@@ -362,14 +382,14 @@ function copiarLink(token){
 /* Gera um link novo a partir de um modelo salvo, sem passar pelo editor.
    O link ja nasce na lista "Links enviados", como Aguardando resposta. */
 async function gerarLinkDoModelo(id){
-  const{data:m,error}=await sb.from('cm_modelos').select('nome,perguntas').eq('id',id).single();
+  const{data:m,error}=await sb.from('cm_modelos').select('nome,perguntas,banner_url').eq('id',id).single();
   if(error||!m){toast('Erro ao buscar o modelo: '+(error?error.message:''),'err');return;}
   if(!m.perguntas||!m.perguntas.length){toast('Esse modelo esta sem perguntas.','err');return;}
   const dest=prompt('Para quem e este formulario?\n\n(nome da farmacia ou da pessoa — serve para voce identificar na lista de Links enviados. Pode deixar em branco.)','');
   if(dest===null)return;
   const token=crypto.randomUUID().replace(/-/g,'').substring(0,16);
   const{data,error:e2}=await sb.from('cm_formularios')
-    .insert({titulo:m.nome,destinatario_nome:dest.trim()||null,token,perguntas:m.perguntas,status:'aberto'})
+    .insert({titulo:m.nome,destinatario_nome:dest.trim()||null,token,perguntas:m.perguntas,status:'aberto',banner_url:m.banner_url||null})
     .select().single();
   if(e2){toast('Erro ao gerar o link: '+e2.message,'err');return;}
   const link=BASE+'?fc='+data.token;
@@ -378,6 +398,57 @@ async function gerarLinkDoModelo(id){
     .catch(()=>{prompt('Link criado! Copie abaixo (Ctrl+C):',link);});
   carregarLista();
   carregarListaModelos();
+}
+
+/* ─────────────────────────────
+   ARTE DO TOPO (banner do formulario)
+───────────────────────────── */
+let _bannerFile=null;   // imagem nova escolhida, ainda nao enviada
+let _bannerUrl=null;    // arte que ja esta no Storage (veio de um modelo)
+
+function escolherBanner(inp){
+  const f=inp.files&&inp.files[0];
+  if(!f)return;
+  if(!/^image\//.test(f.type)){toast('Escolha um arquivo de imagem.','err');inp.value='';return;}
+  if(f.size>3*1024*1024){toast('Imagem muito grande (max. 3 MB). Reduza e tente de novo.','err');inp.value='';return;}
+  _bannerFile=f;_bannerUrl=null;
+  const prev=document.getElementById('n-banner-prev');
+  prev.src=URL.createObjectURL(f);prev.style.display='block';
+  document.getElementById('n-banner-status').textContent=f.name;
+  document.getElementById('n-banner-remover').style.display='inline-block';
+}
+function removerBanner(){
+  _bannerFile=null;_bannerUrl=null;
+  const inp=document.getElementById('n-banner-file');if(inp)inp.value='';
+  const prev=document.getElementById('n-banner-prev');if(prev){prev.src='';prev.style.display='none';}
+  document.getElementById('n-banner-status').textContent='Sem arte — o link vai usar o banner padrão da Coopefarma';
+  document.getElementById('n-banner-remover').style.display='none';
+}
+function mostrarBanner(url){
+  _bannerFile=null;_bannerUrl=url||null;
+  const inp=document.getElementById('n-banner-file');if(inp)inp.value='';
+  const prev=document.getElementById('n-banner-prev');
+  const st=document.getElementById('n-banner-status');
+  const rem=document.getElementById('n-banner-remover');
+  if(!prev||!st||!rem)return;
+  if(url){prev.src=url;prev.style.display='block';st.textContent='Arte do modelo carregado';rem.style.display='inline-block';}
+  else{prev.src='';prev.style.display='none';st.textContent='Sem arte — o link vai usar o banner padrão da Coopefarma';rem.style.display='none';}
+}
+async function uploadBanner(file){
+  const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+  const nome='banner_'+Date.now()+'.'+ext;
+  const{error}=await sb.storage.from('cc-imagens').upload('formularios/'+nome,file,{upsert:true,contentType:file.type});
+  if(error){toast('Erro ao enviar a arte: '+error.message,'err');return null;}
+  const{data:{publicUrl}}=sb.storage.from('cc-imagens').getPublicUrl('formularios/'+nome);
+  return publicUrl;
+}
+/* Envia a imagem se ainda nao foi enviada. Devolve a URL, ou false se falhou. */
+async function resolverBanner(){
+  if(!_bannerFile)return _bannerUrl;
+  const url=await uploadBanner(_bannerFile);
+  if(!url)return false;
+  _bannerUrl=url;_bannerFile=null;
+  return url;
 }
 
 /* ─────────────────────────────
@@ -478,6 +549,7 @@ async function usarModeloParaNovo(id){
   if(sel)sel.value=id;
   _editorState=JSON.parse(JSON.stringify(modelo.perguntas));
   _modeloAtualId=modelo.id;
+  mostrarBanner(modelo.banner_url);
   desenharPerguntas();
   toast('Modelo carregado: '+modelo.nome,'ok');
 }
@@ -522,30 +594,56 @@ async function carregarPainel(){
   const{data:resps,error:e2}=await sb.from('cm_respostas').select('*').in('formulario_id',ids).order('created_at',{ascending:false});
   if(e2||!resps?.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>Ainda não há respostas.</p></div>';return;}
 
-  // colunas identificadas pelo ID da pergunta (estável), não pelo texto (que pode mudar quando o modelo é editado)
-  const colIds=[];const colSeen=new Set();const textoPorId={};
+  // Um quadro por CONJUNTO DE PERGUNTAS: só entram na mesma tabela os formulários
+  // que perguntam exatamente as mesmas coisas. Perguntas diferentes = quadro separado abaixo.
+  const grupos=new Map();
   forms.forEach(f=>{
+    const chave=((f.perguntas||[]).map(q=>q.id).sort().join('|'))||'sem-perguntas';
+    if(!grupos.has(chave))grupos.set(chave,{forms:[],colIds:[],colSeen:new Set(),textoPorId:{},titulos:{}});
+    const g=grupos.get(chave);
+    g.forms.push(f);
+    g.titulos[f.titulo]=(g.titulos[f.titulo]||0)+1;
+    // colunas pelo ID da pergunta (estável), não pelo texto (que pode mudar no modelo)
     (f.perguntas||[]).forEach(q=>{
       if(q.tipo==='longo')return;
-      if(!colSeen.has(q.id)){colSeen.add(q.id);colIds.push(q.id);}
-      textoPorId[q.id]=q.texto;
+      if(!g.colSeen.has(q.id)){g.colSeen.add(q.id);g.colIds.push(q.id);}
+      g.textoPorId[q.id]=q.texto;
     });
   });
-
-  let html='<div class="painel-table-wrap"><table class="painel-table"><thead><tr><th>Loja / Contato</th><th>Respondido em</th>';
-  html+=colIds.map(qid=>`<th>${esc(textoPorId[qid])}</th>`).join('');
-  html+='<th>Ações</th></tr></thead><tbody>';
-  resps.forEach(r=>{
-    const f=formMap[r.formulario_id];
-    if(!f)return;
-    html+=`<tr><td>${esc(f.destinatario_nome||f.titulo)}</td><td>${fmtData(r.created_at)}</td>`;
-    html+=colIds.map(qid=>{
-      const val=(r.respostas||{})[qid];
-      return `<td>${esc(val||'—')}</td>`;
-    }).join('');
-    html+=`<td style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="abrirRespostas('${f.id}')">👁 Detalhes</button> <button class="btn btn-danger btn-sm" onclick="excluirRespostaPainel('${r.id}','${f.id}')">🗑️</button></td></tr>`;
+  grupos.forEach(g=>{
+    const idsGrupo=new Set(g.forms.map(f=>f.id));
+    g.resps=resps.filter(r=>idsGrupo.has(r.formulario_id));
+    g.ultima=g.resps.reduce((max,r)=>Math.max(max,new Date(r.created_at).getTime()||0),0);
+    const nomes=Object.keys(g.titulos).sort((a,b)=>g.titulos[b]-g.titulos[a]);
+    g.nome=nomes[0]||'Formulário';
+    g.variosTitulos=nomes.length>1;
   });
-  html+='</tbody></table></div>';
+  const lista=[...grupos.values()].filter(g=>g.resps.length).sort((a,b)=>b.ultima-a.ultima);
+  if(!lista.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>Ainda não há respostas.</p></div>';return;}
+
+  let html='';
+  if(lista.length>1){
+    html+='<div class="painel-aviso">São '+lista.length+' conjuntos de perguntas diferentes. Cada quadro compara só os formulários que fazem as mesmas perguntas — colocar respostas de questionários diferentes lado a lado não diria nada.</div>';
+  }
+  lista.forEach(g=>{
+    html+='<div class="painel-grupo">';
+    html+='<div class="painel-grupo-titulo">'+esc(g.nome)+(g.variosTitulos?' <span style="font-weight:500;color:#64748b">(e outros títulos com as mesmas perguntas)</span>':'')+'</div>';
+    html+='<div class="painel-grupo-meta">'+g.resps.length+' resposta(s) · '+g.colIds.length+' pergunta(s) na comparação · '+g.forms.length+' link(s) respondido(s)</div>';
+    html+='<div class="painel-table-wrap"><table class="painel-table"><thead><tr><th>Loja / Contato</th><th>Respondido em</th>';
+    html+=g.colIds.map(qid=>`<th>${esc(g.textoPorId[qid])}</th>`).join('');
+    html+='<th>Ações</th></tr></thead><tbody>';
+    g.resps.forEach(r=>{
+      const f=formMap[r.formulario_id];
+      if(!f)return;
+      html+=`<tr><td>${esc(f.destinatario_nome||f.titulo)}</td><td>${fmtData(r.created_at)}</td>`;
+      html+=g.colIds.map(qid=>{
+        const val=(r.respostas||{})[qid];
+        return `<td>${esc(val||'—')}</td>`;
+      }).join('');
+      html+=`<td style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="abrirRespostas('${f.id}')">👁 Detalhes</button> <button class="btn btn-danger btn-sm" onclick="excluirRespostaPainel('${r.id}','${f.id}')">🗑️</button></td></tr>`;
+    });
+    html+='</tbody></table></div></div>';
+  });
   el.innerHTML=html;
 }
 async function _deletarResposta(id,formularioId){
@@ -571,6 +669,7 @@ let _editorState=[];
 async function abrirEditor(){
   document.getElementById('n-titulo').value='Questionário Comercial — Prospecção de Associados';
   document.getElementById('n-dest').value='';
+  removerBanner();
   document.getElementById('resultadoSalvar').innerHTML='';
   const padrao=await garantirModeloPadrao();
   _editorState=padrao?JSON.parse(JSON.stringify(padrao.perguntas)):defaultPerguntas();
@@ -614,6 +713,7 @@ function carregarModeloSelecionado(){
   if(!confirm('Substituir as perguntas atuais do editor pelas do modelo "'+modelo.nome+'"?'))return;
   _editorState=JSON.parse(JSON.stringify(modelo.perguntas));
   _modeloAtualId=modelo.id;
+  mostrarBanner(modelo.banner_url);
   desenharPerguntas();
   toast('Modelo carregado.','ok');
 }
@@ -622,7 +722,9 @@ async function salvarComoModelo(){
   if(!nome)return;
   const perguntas=_editorState.filter(q=>q.texto.trim());
   if(!perguntas.length){toast('Adicione ao menos uma pergunta antes de salvar como modelo.','err');return;}
-  const{data,error}=await sb.from('cm_modelos').insert({nome,perguntas}).select().single();
+  const banner=await resolverBanner();
+  if(banner===false)return;
+  const{data,error}=await sb.from('cm_modelos').insert({nome,perguntas,banner_url:banner||null}).select().single();
   if(error){toast('Erro ao salvar modelo: '+error.message,'err');return;}
   toast('Modelo salvo!','ok');
   _modeloAtualId=data?.id||null;
@@ -636,7 +738,9 @@ async function atualizarModeloAtual(){
   const perguntas=_editorState.filter(q=>q.texto.trim());
   if(!perguntas.length){toast('Adicione ao menos uma pergunta.','err');return;}
   if(!confirm('Atualizar o modelo "'+(modelo?.nome||'')+'" com as perguntas atuais? Isso não afeta links já enviados.'))return;
-  const{error}=await sb.from('cm_modelos').update({perguntas}).eq('id',_modeloAtualId);
+  const banner=await resolverBanner();
+  if(banner===false)return;
+  const{error}=await sb.from('cm_modelos').update({perguntas,banner_url:banner||null}).eq('id',_modeloAtualId);
   if(error){toast('Erro ao atualizar: '+error.message,'err');return;}
   toast('Modelo atualizado!','ok');
   carregarModelosSelect();
@@ -721,7 +825,11 @@ document.getElementById('salvarBtn').addEventListener('click',async()=>{
   const btn=document.getElementById('salvarBtn');
   btn.disabled=true;btn.textContent='Salvando…';
   const token=crypto.randomUUID().replace(/-/g,'').substring(0,16);
-  const{data,error}=await sb.from('cm_formularios').insert({titulo,destinatario_nome:dest||null,token,perguntas,status:'aberto'}).select().single();
+  if(_bannerFile)btn.textContent='Enviando a arte…';
+  const banner=await resolverBanner();
+  if(banner===false){btn.disabled=false;btn.textContent='💾 Salvar e gerar link';return;}
+  btn.textContent='Salvando…';
+  const{data,error}=await sb.from('cm_formularios').insert({titulo,destinatario_nome:dest||null,token,perguntas,status:'aberto',banner_url:banner||null}).select().single();
   btn.disabled=false;btn.textContent='💾 Salvar e gerar link';
   if(error){toast('Erro ao salvar: '+error.message,'err');return;}
   const link=BASE+'?fc='+data.token;
@@ -780,6 +888,10 @@ async function initPreench(token){
   }
   _prForm=form;
   document.title=form.titulo+' — Coopefarma';
+  if(form.banner_url){
+    const b=document.getElementById('pr-banner');
+    if(b){b.src=form.banner_url;b.style.display='block';}
+  }
   const perguntas=form.perguntas||[];
   document.getElementById('pr-card-perguntas').innerHTML='<h2>📋 Perguntas</h2>'+perguntas.map((q,i)=>renderCampo(q,i)).join('');
 }
