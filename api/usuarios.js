@@ -8,7 +8,6 @@
 //
 //  Variaveis usadas na Vercel:
 //    SUPABASE_SERVICE_ROLE_KEY  (obrigatoria)  chave secreta do Supabase
-//    ADMIN_EMAILS               (opcional)     lista separada por virgula
 //    SUPABASE_URL               (opcional)     se um dia mudar de projeto
 // ═══════════════════════════════════════════════════════════════
 
@@ -16,8 +15,10 @@ const SB_URL      = process.env.SUPABASE_URL || 'https://uofcbqqbubvvltnzvhsx.su
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const PUBLIC_KEY  = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_SQ0x7RDU9B0u5lqvn2pr1Q_4NwoJMY9';
 
-const ADMINS = (process.env.ADMIN_EMAILS || 'drogariaflorania@yahoo.com.br,rede@coopefarma.com')
-  .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+// Unico administrador do modulo de usuarios (decisao de 03/09/2026).
+// A lista fica fixa no codigo de proposito: assim ninguem ganha acesso
+// por engano mexendo em variavel de ambiente na Vercel.
+const ADMINS = ['drogariaflorania@yahoo.com.br'];
 
 // Quem esta chamando? Confere o token da sessao do navegador no Supabase.
 async function usuarioDaSessao(req) {
