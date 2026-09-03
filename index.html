@@ -37,12 +37,32 @@ footer{margin-top:48px;font-size:11px;color:#aaa}
       <div class="titulo">Formulário</div>
       <div class="desc">Questionário de prospecção de novos associados</div>
     </a>
-    <a class="tile" href="usuarios.html">
+    <a class="tile" id="tile-usuarios" href="usuarios.html" style="display:none">
       <span class="icon">🔑</span>
       <div class="titulo">Usuários</div>
       <div class="desc">Criar e remover acessos ao portal comercial</div>
     </a>
   </div>
   <footer>Coopefarma</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// O card de Usuarios so aparece para o administrador. Quem nao for admin
+// nem ve a opcao — e a funcao api/usuarios.js barra do mesmo jeito.
+const ADMINS_PORTAL = ['drogariaflorania@yahoo.com.br'];
+(async () => {
+  try {
+    const sb = supabase.createClient(
+      'https://uofcbqqbubvvltnzvhsx.supabase.co',
+      'sb_publishable_SQ0x7RDU9B0u5lqvn2pr1Q_4NwoJMY9'
+    );
+    const { data: { session } } = await sb.auth.getSession();
+    const email = ((session && session.user && session.user.email) || '').toLowerCase();
+    if (ADMINS_PORTAL.includes(email)) {
+      document.getElementById('tile-usuarios').style.display = '';
+    }
+  } catch (e) { /* sem sessao: o card continua escondido */ }
+})();
+</script>
 </body>
 </html>
