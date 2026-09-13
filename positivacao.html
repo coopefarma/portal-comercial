@@ -36,7 +36,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit}
 /* ═══════════ CARTÃO DIGITAL (associado) ═══════════ */
 #tela-cartao{padding-bottom:36px}
 .c-topo{background:linear-gradient(135deg,#0d1b2a,#14532d);color:#fff;padding:16px 18px 14px;text-align:center}
-.c-topo img{height:34px;margin-bottom:8px;background:#fff;border-radius:6px;padding:4px 8px}
+.c-topo img{height:86px;margin-bottom:4px;object-fit:contain;filter:drop-shadow(0 3px 8px rgba(0,0,0,.35))}
 .c-evento{font-family:'Poppins',sans-serif;font-weight:800;font-size:15px;letter-spacing:.2px}
 .c-loja{font-size:13px;opacity:.85;margin-top:3px}
 
@@ -119,7 +119,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit}
   background:linear-gradient(135deg,#0d1b2a,#1b4332);padding:20px}
 .login-box{background:#fff;border-radius:16px;padding:32px 28px;width:100%;max-width:380px;
   box-shadow:0 20px 50px rgba(0,0,0,.3)}
-.login-box img{height:46px;display:block;margin:0 auto 10px}
+.login-box img{height:96px;display:block;margin:0 auto 12px;object-fit:contain}
 .login-box h2{font-family:'Poppins',sans-serif;font-size:19px;text-align:center}
 .login-box p{font-size:12.5px;color:var(--cinza);text-align:center;margin:4px 0 20px}
 .login-box label{display:block;font-size:12px;font-weight:700;color:var(--cinza);margin:12px 0 5px}
@@ -132,7 +132,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit}
 .a-topo{background:#fff;border-bottom:1px solid var(--borda);padding:10px 16px;display:flex;
   align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:50}
 .a-topo .marca{display:flex;align-items:center;gap:9px;font-family:'Poppins',sans-serif;font-weight:700;font-size:15px}
-.a-topo .marca img{height:28px}
+.a-topo .marca img{height:50px;object-fit:contain}
 .a-nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
 .a-nav button{background:transparent;border:none;padding:8px 13px;border-radius:8px;font-weight:600;
   font-size:13.5px;color:var(--cinza);cursor:pointer}
@@ -217,7 +217,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 <!-- ══════════════════ CARTÃO DIGITAL ══════════════════ -->
 <div id="tela-cartao" class="oculto">
   <div class="c-topo">
-    <img src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
+    <img src="logos/logo-positiva.png" alt="Positiva Coopefarma"/>
     <div class="c-evento" id="c-evento">11ª Rodada de Negócios</div>
     <div class="c-loja" id="c-loja">—</div>
   </div>
@@ -245,9 +245,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 <!-- ══════════════════ LOGIN ══════════════════ -->
 <div id="tela-login">
   <div class="login-box">
-    <img src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
-    <h2>Positivação</h2>
-    <p>Retaguarda da Rodada de Negócios</p>
+    <img src="logos/logo-positiva.png" alt="Positiva Coopefarma"/>
+    <h2>Retaguarda</h2>
+    <p>Positivação da Rodada de Negócios</p>
     <label>E-mail</label>
     <input type="email" id="l-email" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('l-senha').focus()"/>
     <label>Senha</label>
@@ -261,8 +261,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 <div id="tela-admin">
   <div class="a-topo">
     <div class="marca">
-      <img src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
-      <span>Positivação</span>
+      <img src="logos/logo-positiva.png" alt="Positiva Coopefarma"/>
+      <span>Retaguarda</span>
     </div>
     <div class="a-nav">
       <button id="nav-painel" class="ativo" onclick="irPara('painel')">Painel</button>
