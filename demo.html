@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Demonstração — Positiva Coopefarma</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--verde:#15a563;--verde-esc:#0e7a49;--borda:rgba(255,255,255,.16)}
+body{font-family:'Inter',sans-serif;background:radial-gradient(circle at 50% 0%,#123a2a 0%,#0b1622 60%,#070d15 100%);
+  color:#e8eef4;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:18px 16px 28px;overflow-x:hidden}
+
+header{text-align:center;margin-bottom:14px}
+header img{height:76px;object-fit:contain;filter:drop-shadow(0 4px 14px rgba(0,0,0,.5))}
+header h1{font-family:'Poppins',sans-serif;font-size:19px;font-weight:800;margin-top:6px;letter-spacing:.2px}
+header p{font-size:13px;color:#9fb3c4;margin-top:3px}
+
+.controles{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
+select,.passo{font-family:inherit;font-size:13.5px;font-weight:600;border-radius:10px;border:1px solid var(--borda);
+  background:rgba(255,255,255,.07);color:#e8eef4;padding:10px 14px;outline:none;cursor:pointer;transition:.15s}
+select{min-width:250px}
+select option{background:#132030;color:#e8eef4}
+.passo:hover{background:rgba(255,255,255,.14)}
+.passo.ativo{background:var(--verde);border-color:var(--verde);color:#fff}
+
+/* ── moldura do celular ── */
+.palco{display:flex;justify-content:center;align-items:flex-start;width:100%}
+.fone{width:392px;height:812px;border-radius:46px;background:#0a0f16;padding:12px;flex:none;
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 0 0 9px #161d26,0 0 0 10px #2a3542,0 34px 70px rgba(0,0,0,.62);
+  position:relative;transform-origin:top center}
+.fone::before{content:'';position:absolute;top:20px;left:50%;transform:translateX(-50%);
+  width:104px;height:24px;background:#0a0f16;border-radius:0 0 16px 16px;z-index:5}
+.tela{width:100%;height:100%;border-radius:35px;overflow:hidden;background:#f5f7fa;position:relative}
+.tela iframe{width:100%;height:100%;border:0;display:block}
+
+/* ── passo 1: a mensagem que o associado recebe ── */
+.msg{height:100%;display:flex;flex-direction:column;background:#e9e3db}
+.msg-topo{background:#14532d;color:#fff;padding:34px 16px 12px;display:flex;align-items:center;gap:11px;flex:none}
+.msg-topo .av{width:38px;height:38px;border-radius:50%;background:#fff;display:flex;align-items:center;
+  justify-content:center;flex:none;overflow:hidden}
+.msg-topo .av img{width:34px;height:34px;object-fit:contain}
+.msg-topo .quem{font-weight:700;font-size:14.5px;line-height:1.2}
+.msg-topo .quando{font-size:11px;opacity:.75;margin-top:1px}
+.msg-corpo{flex:1;padding:16px 14px;overflow-y:auto}
+.balao{background:#fff;border-radius:4px 14px 14px 14px;padding:13px 15px;font-size:13.5px;line-height:1.55;
+  color:#111b21;box-shadow:0 1px 2px rgba(0,0,0,.14);white-space:pre-wrap;word-break:break-word}
+.balao b{font-weight:700}
+.balao .link{color:#0b6bcb;text-decoration:underline;word-break:break-all;display:inline-block;margin-top:2px}
+.balao .hora{display:block;text-align:right;font-size:10.5px;color:#8a9aa5;margin-top:7px}
+.msg-rodape{flex:none;padding:14px;background:#e9e3db}
+.msg-rodape button{width:100%;border:none;border-radius:12px;background:var(--verde);color:#fff;
+  font-family:'Poppins',sans-serif;font-weight:700;font-size:15px;padding:15px;cursor:pointer;
+  box-shadow:0 6px 18px rgba(21,165,99,.35)}
+.msg-rodape button:hover{background:var(--verde-esc)}
+.msg-rodape .dica{text-align:center;font-size:11px;color:#6b7d8a;margin-top:9px}
+
+.legenda{margin-top:16px;font-size:12.5px;color:#8fa3b5;text-align:center;max-width:560px;line-height:1.6}
+.legenda b{color:#cfe0ee}
+</style>
+</head>
+<body>
+
+<header>
+  <img src="logos/logo-positiva.png" alt="Positiva Coopefarma"/>
+  <h1>Como o associado vai usar</h1>
+  <p>Esta é exatamente a tela que abre no celular dele</p>
+</header>
+
+<div class="controles">
+  <select id="sel-loja"><option>Carregando lojas...</option></select>
+  <button class="passo ativo" id="p1" onclick="irPasso(1)">1 · A mensagem</button>
+  <button class="passo" id="p2" onclick="irPasso(2)">2 · O cartão digital</button>
+</div>
+
+<div class="palco">
+  <div class="fone" id="fone">
+    <div class="tela" id="tela"></div>
+  </div>
+</div>
+
+<div class="legenda" id="legenda"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DEMO — moldura de celular para apresentar a ferramenta
+   numa chamada. Compartilhe a aba do navegador e todo mundo vê
+   a mesma tela que o associado vê no aparelho dele.
+   ═══════════════════════════════════════════════════════════ */
+const SB_URL='https://uofcbqqbubvvltnzvhsx.supabase.co';
+const SB_KEY='sb_publishable_SQ0x7RDU9B0u5lqvn2pr1Q_4NwoJMY9';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const BASE=location.origin+location.pathname.replace(/demo\.html$/,'positivacao.html');
+
+let ASSOCS=[], EVENTO='11ª Rodada de Negócios', passo=1;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const linkDe=a=>BASE+'?t='+a.token;
+const atual=()=>ASSOCS.find(a=>a.id===$('sel-loja').value);
+
+/* a moldura encolhe junto com a janela, sem cortar */
+function ajustarEscala(){
+  const f=$('fone');
+  const disp=window.innerHeight-f.getBoundingClientRect().top-70;
+  const s=Math.min(1, disp/812, (window.innerWidth-32)/392);
+  f.style.transform='scale('+Math.max(.45,s)+')';
+  f.parentElement.style.height=(812*Math.max(.45,s)+24)+'px';
+}
+window.addEventListener('resize',ajustarEscala);
+
+async function init(){
+  const [{data:cfg},{data:as}]=await Promise.all([
+    sb.from('rn_config').select('evento_nome').eq('id',1).maybeSingle(),
+    sb.from('rn_associados').select('*').eq('ativo',true).order('nome')
+  ]);
+  if(cfg&&cfg.evento_nome)EVENTO=cfg.evento_nome;
+  ASSOCS=as||[];
+  const sel=$('sel-loja');
+  sel.innerHTML=ASSOCS.length
+    ? ASSOCS.map(a=>`<option value="${a.id}">${esc(a.nome)}${a.cidade?' — '+esc(a.cidade):''}</option>`).join('')
+    : '<option>Nenhum associado cadastrado</option>';
+  sel.onchange=()=>render();
+  render();
+  ajustarEscala();
+}
+
+function irPasso(n){
+  passo=n;
+  $('p1').classList.toggle('ativo',n===1);
+  $('p2').classList.toggle('ativo',n===2);
+  render();
+}
+
+function render(){
+  const a=atual();
+  if(!a){$('tela').innerHTML='';return;}
+  if(passo===1)telaMensagem(a); else telaCartao(a);
+  $('legenda').innerHTML = passo===1
+    ? 'O associado recebe o link no WhatsApp, já com o nome da loja dele. <b>Cada loja tem o seu link</b> — não existe senha nem cadastro: é só tocar e abrir.'
+    : 'Toque em qualquer logo para ver o fluxo da mesa. A barra de cima mostra, em tempo real, <b>quantas mesas já foram feitas, a positivação, o valor comprado e os cupons</b> conquistados.';
+}
+
+function telaMensagem(a){
+  const primeiro=a.nome.split(' ')[0];
+  const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const texto=
+    `Olá, ${esc(primeiro)}! Este é o seu <b>cartão digital de positivação</b> da ${esc(EVENTO)} da Coopefarma.\n\n`+
+    `Abra o link abaixo no celular e leve com você: a cada mesa que visitar, toque no logo da indústria e registre o pedido. `+
+    `O cartão mostra em tempo real a sua positivação e quantos cupons você já tem para o sorteio das TVs.\n\n`+
+    `<span class="link">${esc(linkDe(a))}</span>`;
+  $('tela').innerHTML=`
+    <div class="msg">
+      <div class="msg-topo">
+        <div class="av"><img src="logos/logo-positiva.png" alt=""/></div>
+        <div>
+          <div class="quem">Coopefarma</div>
+          <div class="quando">mensagem recebida agora</div>
+        </div>
+      </div>
+      <div class="msg-corpo">
+        <div class="balao">${texto}<span class="hora">${hora}</span></div>
+      </div>
+      <div class="msg-rodape">
+        <button onclick="irPasso(2)">Abrir meu cartão</button>
+        <div class="dica">É o que acontece quando ele toca no link</div>
+      </div>
+    </div>`;
+}
+
+function telaCartao(a){
+  $('tela').innerHTML=`<iframe src="${linkDe(a)}" title="Cartão digital"></iframe>`;
+}
+
+init();
+</script>
+</body>
+</html>
