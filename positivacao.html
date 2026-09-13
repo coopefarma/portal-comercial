@@ -488,9 +488,17 @@ function totalMesas(){return INDS.filter(i=>i.ativa&&i.conta_positivacao).length
    mas NÃO conta como mesa — a positivação continua sendo mesas ÷ 36. */
 function calcular(regsDaLoja,valorCC){
   const total=totalMesas();
-  const conc=regsDaLoja.filter(r=>r.status==='concluido');
-  const ini=regsDaLoja.filter(r=>r.status==='iniciado');
-  const valorMesas=conc.reduce((s,r)=>s+Number(r.valor||0),0);
+  // Indústria desativada sai da conta por inteiro: não é mesa e o valor
+  // dela não entra. É o caso da indústria que confirmou e não apareceu.
+  // Já a marcada como "não conta positivação" não é mesa, mas o dinheiro
+  // comprado nela continua valendo para o volume.
+  const ativas=new Set(INDS.filter(i=>i.ativa).map(i=>i.id));
+  const contam=new Set(INDS.filter(i=>i.ativa&&i.conta_positivacao).map(i=>i.id));
+  const validos=regsDaLoja.filter(r=>ativas.has(r.industria_id));
+  const concTodos=validos.filter(r=>r.status==='concluido');
+  const conc=concTodos.filter(r=>contam.has(r.industria_id));
+  const ini=validos.filter(r=>r.status==='iniciado');
+  const valorMesas=concTodos.reduce((s,r)=>s+Number(r.valor||0),0);
   const coletiva=Number(valorCC||0);
   const valor=valorMesas+coletiva;
   const pct=total?(conc.length/total)*100:0;
@@ -545,17 +553,40 @@ async function initCartao(){
   $('c-loja').textContent=EU.nome+(EU.cidade?' — '+EU.cidade:'');
   document.title='Positivação — '+EU.nome;
   await atualizarCartao();
-  setInterval(()=>{if(!document.querySelector('.overlay'))atualizarCartao();},20000);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)atualizarCartao();});
+
+  // 1) tempo real: qualquer mexida da retaguarda nas mesas desta loja
+  //    (inclusive apagar e zerar) chega no celular na hora.
+  try{
+    const recarrega=()=>{if(!document.querySelector('.overlay'))atualizarCartao();};
+    sb.channel('cartao-'+EU.id)
+      .on('postgres_changes',
+          {event:'*',schema:'public',table:'rn_registros',filter:'associado_id=eq.'+EU.id},
+          recarrega)
+      .on('postgres_changes',
+          {event:'*',schema:'public',table:'rn_industrias'},
+          recarrega)
+      .subscribe();
+  }catch(e){ /* sem realtime, a rede de segurança abaixo cobre */ }
+
+  // 2) rede de segurança: o celular dorme e mata o timer, então
+  //    recarrega também ao voltar para a tela.
+  setInterval(()=>{if(!document.querySelector('.overlay'))atualizarCartao();},15000);
+  const revisita=()=>{if(!document.hidden&&!document.querySelector('.overlay'))atualizarCartao();};
+  document.addEventListener('visibilitychange',revisita);
+  window.addEventListener('pageshow',revisita);
+  window.addEventListener('focus',revisita);
+  window.addEventListener('online',revisita);
 }
 
 async function atualizarCartao(){
-  const [{data},{data:eu}]=await Promise.all([
+  const [{data},{data:eu},{data:inds}]=await Promise.all([
     sb.from('rn_registros').select('*').eq('associado_id',EU.id),
-    sb.from('rn_associados').select('*').eq('id',EU.id).maybeSingle()
+    sb.from('rn_associados').select('*').eq('id',EU.id).maybeSingle(),
+    sb.from('rn_industrias').select('*').eq('ativa',true).order('ordem')
   ]);
   REGS=data||[];
-  if(eu)EU=eu;              // pega a Compra Coletiva lançada na retaguarda
+  if(eu)EU=eu;                 // pega a Compra Coletiva lançada na retaguarda
+  if(inds&&inds.length)INDS=inds;  // indústria incluída ou desativada na hora
   renderCartao();
 }
 
@@ -1200,9 +1231,15 @@ async function salvarIndustria(id,btn){
 async function alternarIndustria(id){
   const i=INDS_ADMIN.find(x=>x.id===id);
   const novo=!i.ativa;
-  if(!confirm(novo
+  const usos=REGS.filter(r=>r.industria_id===id).length;
+  const lojas=new Set(REGS.filter(r=>r.industria_id===id).map(r=>r.associado_id)).size;
+  const alerta=(!novo&&usos)
+    ? `\n\nATENÇÃO: ${lojas} loja(s) já registraram esta mesa. Ao desativar, esses `+
+      `lançamentos saem da positivação e do valor comprado — mas ficam guardados e voltam se você reativar.`
+    : '';
+  if(!confirm((novo
     ? `Ativar ${i.nome}? O total de mesas passa a ser ${totalMesas()+(i.conta_positivacao?1:0)}.`
-    : `Desativar ${i.nome}? Ela some do cartão dos associados e o total de mesas cai para ${totalMesas()-(i.conta_positivacao?1:0)}.`))return;
+    : `Desativar ${i.nome}? Ela some do cartão dos associados e o total de mesas cai para ${totalMesas()-(i.conta_positivacao?1:0)}.`)+alerta))return;
   await sb.from('rn_industrias').update({ativa:novo}).eq('id',id);
   await carregarTudo();irPara('industrias');
   toast(novo?'Indústria ativada.':'Indústria desativada.');
