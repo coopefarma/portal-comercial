@@ -63,6 +63,17 @@ button,input,select,textarea{font-family:inherit;font-size:inherit}
 .pip.amarela{border-color:var(--amarelo);background:var(--amarelo-bg)}
 .pip.verde{border-color:var(--verde);background:var(--verde-bg)}
 
+/* Compra Coletiva: soma ao volume, não é mesa — por isso fica fora da grade */
+.coletiva{max-width:620px;margin:14px auto 0;padding:0 12px}
+.coletiva .cx{background:linear-gradient(135deg,#0d1b2a,#14532d);color:#fff;border-radius:14px;
+  padding:13px 16px;display:flex;align-items:center;gap:13px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.coletiva .ic{font-size:24px;line-height:1}
+.coletiva .tx{flex:1;min-width:0}
+.coletiva .rot{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;opacity:.75;font-weight:700}
+.coletiva .num{font-family:'Poppins',sans-serif;font-weight:800;font-size:19px;margin-top:1px}
+.coletiva .obs{font-size:11.5px;opacity:.8;margin-top:2px;line-height:1.35}
+@media(min-width:760px){.coletiva{max-width:900px}}
+
 .c-grade{max-width:620px;margin:12px auto 0;padding:0 12px;
   display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
 @media(min-width:520px){.c-grade{grid-template-columns:repeat(4,1fr)}}
@@ -243,6 +254,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
     <span><i class="pip verde"></i> Valor registrado</span>
   </div>
 
+  <div id="c-coletiva"></div>
   <div class="c-grade" id="c-grade"></div>
 </div>
 
@@ -449,11 +461,15 @@ const lerMoeda=input=>{const d=soDigitos(input.value);return d?Number(d)/100:0;}
 /* ── o coração da campanha: cálculo de cupons ────────────── */
 function totalMesas(){return INDS.filter(i=>i.ativa&&i.conta_positivacao).length;}
 
-function calcular(regsDaLoja){
+/* valorCC = Compra Coletiva. Soma ao volume comprado (gera cupom),
+   mas NÃO conta como mesa — a positivação continua sendo mesas ÷ 36. */
+function calcular(regsDaLoja,valorCC){
   const total=totalMesas();
   const conc=regsDaLoja.filter(r=>r.status==='concluido');
   const ini=regsDaLoja.filter(r=>r.status==='iniciado');
-  const valor=conc.reduce((s,r)=>s+Number(r.valor||0),0);
+  const valorMesas=conc.reduce((s,r)=>s+Number(r.valor||0),0);
+  const coletiva=Number(valorCC||0);
+  const valor=valorMesas+coletiva;
   const pct=total?(conc.length/total)*100:0;
   const apto=pct>=Number(CFG.piso_positivacao);
   let mult=1,rotulo=null;
@@ -461,7 +477,8 @@ function calcular(regsDaLoja){
   for(const f of faixas){if(pct>=f.pct){mult=Number(f.mult);rotulo=f.rotulo;break;}}
   const base=Math.floor(valor/Number(CFG.valor_por_cupom||500));
   const cupons=apto?Math.floor(base*mult):0;
-  return {total,conc:conc.length,ini:ini.length,valor,pct,apto,mult,rotulo,base,cupons};
+  return {total,conc:conc.length,ini:ini.length,valorMesas,coletiva,valor,
+          pct,apto,mult,rotulo,base,cupons};
 }
 
 /* quantas mesas faltam para o próximo degrau */
@@ -510,15 +527,19 @@ async function initCartao(){
 }
 
 async function atualizarCartao(){
-  const {data}=await sb.from('rn_registros').select('*').eq('associado_id',EU.id);
+  const [{data},{data:eu}]=await Promise.all([
+    sb.from('rn_registros').select('*').eq('associado_id',EU.id),
+    sb.from('rn_associados').select('*').eq('id',EU.id).maybeSingle()
+  ]);
   REGS=data||[];
+  if(eu)EU=eu;              // pega a Compra Coletiva lançada na retaguarda
   renderCartao();
 }
 
 function regDe(indId){return REGS.find(r=>r.industria_id===indId)||null;}
 
 function renderCartao(){
-  const c=calcular(REGS);
+  const c=calcular(REGS,EU.valor_compra_coletiva);
   $('s-mesas').textContent=c.conc+'/'+c.total;
   $('s-pct').textContent=Math.round(c.pct)+'%';
   $('s-valor').textContent=brlCurto(c.valor);
@@ -549,6 +570,16 @@ function renderCartao(){
     el.className='c-meta apto';
     el.innerHTML='✅ Apto ao sorteio'+(c.rotulo?' com <b>'+esc(c.rotulo)+'</b>':'')+'. '+falta(meta);
   }
+
+  $('c-coletiva').innerHTML = c.coletiva>0 ? `
+    <div class="coletiva"><div class="cx">
+      <div class="ic">🛒</div>
+      <div class="tx">
+        <div class="rot">Compra Coletiva</div>
+        <div class="num">${brl(c.coletiva)}</div>
+        <div class="obs">Somada ao seu total de compras e já contando cupons. Não ocupa mesa — sua positivação continua sendo ${c.conc} de ${c.total}.</div>
+      </div>
+    </div></div>` : '';
 
   $('c-grade').innerHTML=INDS.map(ind=>{
     const r=regDe(ind.id);
@@ -650,7 +681,7 @@ async function concluirMesa(indId,btn){
   if(error){btn.disabled=false;btn.textContent='Concluir registro';err.textContent='Erro ao salvar. Tente de novo.';return;}
   await atualizarCartao();
   fecharModal();
-  const c=calcular(REGS);
+  const c=calcular(REGS,EU.valor_compra_coletiva);
   toast('Registrado! '+c.conc+' mesas · '+c.cupons+' cupons');
 }
 
@@ -700,7 +731,7 @@ async function carregarTudo(aviso){
 function linhasCalculadas(){
   return ASSOCS.map(a=>{
     const regs=REGS.filter(r=>r.associado_id===a.id);
-    return {a,regs,c:calcular(regs)};
+    return {a,regs,c:calcular(regs,a.valor_compra_coletiva)};
   });
 }
 
@@ -709,6 +740,8 @@ function renderPainel(){
   const linhas=linhasCalculadas();
   const ativos=linhas.filter(l=>l.a.ativo);
   const totalValor=ativos.reduce((s,l)=>s+l.c.valor,0);
+  const totalMesasValor=ativos.reduce((s,l)=>s+l.c.valorMesas,0);
+  const totalColetiva=ativos.reduce((s,l)=>s+l.c.coletiva,0);
   const totalCupons=ativos.reduce((s,l)=>s+l.c.cupons,0);
   const aptas=ativos.filter(l=>l.c.apto).length;
   const mesasFeitas=ativos.reduce((s,l)=>s+l.c.conc,0);
@@ -720,7 +753,7 @@ function renderPainel(){
     <div class="kpi verde"><div class="rot">Lojas aptas</div><div class="num">${aptas}</div><div class="pe">a partir de ${CFG.piso_positivacao}% de positivação</div></div>
     <div class="kpi"><div class="rot">Positivação geral</div><div class="num">${mesasPossiveis?Math.round(mesasFeitas/mesasPossiveis*100):0}%</div><div class="pe">${mesasFeitas} de ${mesasPossiveis} mesas</div></div>
     <div class="kpi"><div class="rot">Aguardando valor</div><div class="num" style="color:var(--amarelo)">${pendentes}</div><div class="pe">mesas iniciadas sem lançamento</div></div>
-    <div class="kpi"><div class="rot">Volume negociado</div><div class="num">${brlCurto(totalValor)}</div><div class="pe">soma dos pedidos concluídos</div></div>
+    <div class="kpi"><div class="rot">Volume negociado</div><div class="num">${brlCurto(totalValor)}</div><div class="pe">mesas ${brlCurto(totalMesasValor)}${totalColetiva>0?' + coletiva '+brlCurto(totalColetiva):''}</div></div>
     <div class="kpi verde"><div class="rot">Cupons gerados</div><div class="num">${totalCupons}</div><div class="pe">para o sorteio das 20 TVs</div></div>`;
 
   const q=($('f-painel').value||'').toLowerCase().trim();
@@ -750,6 +783,7 @@ function renderPainel(){
       </td>
       <td class="num">${l.c.conc}/${l.c.total}</td>
       <td class="num"><b>${Math.round(l.c.pct)}%</b></td>
+      <td class="num">${l.c.coletiva>0?'<span class="tag tag-verde">'+brlCurto(l.c.coletiva)+'</span>':''}</td>
       <td class="num">${brl(l.c.valor)}</td>
       <td class="num"><b style="color:var(--verde)">${l.c.cupons}</b></td>
       <td>${l.c.apto?'<span class="tag tag-verde">apto</span>':'<span class="tag tag-cinza">não apto</span>'}</td>
@@ -760,7 +794,7 @@ function renderPainel(){
   $('painel-tabela').innerHTML=lista.length?
     `<table class="matriz"><thead><tr>
        <th class="loja">Loja</th><th class="num">Mesas</th><th class="num">Pos.</th>
-       <th class="num">Valor</th><th class="num">Cupons</th><th>Status</th>${cab}<th class="folga"></th>
+       <th class="num">Coletiva</th><th class="num">Valor total</th><th class="num">Cupons</th><th>Status</th>${cab}<th class="folga"></th>
      </tr></thead><tbody>${corpo}</tbody></table>`
     :'<div class="vazio">Nenhuma loja encontrada.</div>';
 }
@@ -769,7 +803,7 @@ function renderPainel(){
 function abrirDetalhe(assocId,focoInd){
   const a=ASSOCS.find(x=>x.id===assocId);
   const regs=REGS.filter(r=>r.associado_id===assocId);
-  const c=calcular(regs);
+  const c=calcular(regs,a.valor_compra_coletiva);
   const itens=INDS.map(i=>{
     const r=regs.find(x=>x.industria_id===i.id);
     const st=r?r.status:'';
@@ -790,8 +824,14 @@ function abrirDetalhe(assocId,focoInd){
         <div><div style="font-size:11px;color:var(--cinza);font-weight:700">VALOR</div><b style="font-size:19px">${brlCurto(c.valor)}</b></div>
         <div><div style="font-size:11px;color:var(--cinza);font-weight:700">CUPONS</div><b style="font-size:19px;color:var(--verde-esc)">${c.cupons}</b></div>
       </div>
+      <div class="m-aviso">
+        Mesas: <b>${brl(c.valorMesas)}</b> &nbsp;+&nbsp; Compra Coletiva: <b>${brl(c.coletiva)}</b>
+        &nbsp;=&nbsp; total <b>${brl(c.valor)}</b>
+        <button class="btn btn-ghost btn-sm" style="float:right;margin-top:-3px"
+                onclick="editarColetiva('${assocId}')">Lançar Compra Coletiva</button>
+      </div>
       <div class="m-aviso">${c.apto?'Apto ao sorteio'+(c.rotulo?' — <b>'+esc(c.rotulo)+'</b>':'')+`. ${c.base} cupom(ns) por volume × ${c.mult} = <b>${c.cupons}</b>.`
-        :`Ainda não atingiu o piso de ${CFG.piso_positivacao}% — sem cupons até lá.`}</div>
+        :`Ainda não atingiu o piso de ${CFG.piso_positivacao}% — sem cupons até lá. A Compra Coletiva só vira cupom depois que a loja ficar apta.`}</div>
       <div class="det-grade">${itens}</div>
       <div class="m-acoes"><button class="btn btn-ghost" onclick="fecharModal()">Fechar</button></div>
     </div></div>`;
@@ -859,6 +899,46 @@ async function apagarRegistro(assocId,indId){
   renderPainel();abrirDetalhe(assocId);toast('Registro apagado.');
 }
 
+/* ── COMPRA COLETIVA ────────────────────────────────────── */
+/* Valor do CompraCoop lançado à mão: o cartão do associado abre sem
+   login e as tabelas cc_* só liberam leitura para quem está logado. */
+function editarColetiva(assocId,origem){
+  const volta = origem==='lista' ? `fecharModal()` : `abrirDetalhe('${assocId}')`;
+  const a=ASSOCS.find(x=>x.id===assocId);
+  const v=Number(a.valor_compra_coletiva||0);
+  const txt=v?v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+  $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)${volta}">
+    <div class="modal">
+      <div class="m-titulo">Compra Coletiva</div>
+      <div class="m-sub">${esc(a.nome)}${a.cidade?' — '+esc(a.cidade):''}</div>
+      <div class="m-campo">
+        <label>Valor total comprado na Compra Coletiva</label>
+        <input id="cc-val" class="valor" inputmode="numeric" placeholder="0,00" value="${txt}" oninput="mascaraMoeda(this)"/>
+      </div>
+      <div class="m-erro" id="cc-erro"></div>
+      <div class="m-acoes">
+        <button class="btn btn-ghost" onclick="${volta}">Voltar</button>
+        <button class="btn btn-primary" onclick="salvarColetiva('${assocId}',this,'${origem||''}')">Salvar</button>
+      </div>
+      <div class="m-aviso">Este valor <b>soma ao total de compras</b> e gera cupons como qualquer mesa,
+        mas <b>não conta como mesa</b> — a positivação continua sendo o número de mesas concluídas
+        dividido pelo total de indústrias. Se a loja tiver mais de um CNPJ, lance aqui a soma dos pedidos.
+        Zere com 0 para desfazer.</div>
+    </div></div>`;
+  setTimeout(()=>$('cc-val').focus(),120);
+}
+
+async function salvarColetiva(assocId,btn,origem){
+  const v=lerMoeda($('cc-val'));
+  btn.disabled=true;btn.textContent='Salvando...';
+  const {error}=await sb.from('rn_associados').update({valor_compra_coletiva:v}).eq('id',assocId);
+  if(error){btn.disabled=false;btn.textContent='Salvar';$('cc-erro').textContent='Erro ao salvar.';return;}
+  const {data}=await sb.from('rn_associados').select('*').order('nome');ASSOCS=data||[];
+  renderPainel();
+  if(origem==='lista'){fecharModal();renderAssociados();}else{abrirDetalhe(assocId);}
+  toast(v>0?'Compra Coletiva lançada.':'Compra Coletiva zerada.');
+}
+
 /* ── ASSOCIADOS ─────────────────────────────────────────── */
 function linkDe(a){return BASE+'?t='+a.token;}
 
@@ -866,11 +946,13 @@ function renderAssociados(){
   const q=($('f-assoc').value||'').toLowerCase().trim();
   const lista=ASSOCS.filter(a=>!q||a.nome.toLowerCase().includes(q)||(a.cidade||'').toLowerCase().includes(q));
   $('assoc-tabela').innerHTML=lista.length?`<table>
-    <thead><tr><th>Associado</th><th>Cidade</th><th>Telefone</th><th>Situação</th><th>Link do cartão</th></tr></thead>
+    <thead><tr><th>Associado</th><th>Cidade</th><th>Telefone</th><th class="num">Compra Coletiva</th><th>Situação</th><th>Link do cartão</th></tr></thead>
     <tbody>${lista.map(a=>`<tr>
       <td><b>${esc(a.nome)}</b></td>
       <td>${esc(a.cidade||'—')}</td>
       <td>${esc(telefoneFmt(a.telefone))||'—'}</td>
+      <td class="num"><button class="btn btn-ghost btn-sm" onclick="editarColetiva('${a.id}','lista')">${
+        Number(a.valor_compra_coletiva||0)>0?brl(a.valor_compra_coletiva):'lançar'}</button></td>
       <td>${a.ativo?'<span class="tag tag-verde">ativo</span>':'<span class="tag tag-cinza">inativo</span>'}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-sm" onclick="copiarLink('${a.id}')">Copiar</button>
@@ -947,11 +1029,12 @@ function renderSorteio(){
     <div class="kpi verde"><div class="rot">Cupons no total</div><div class="num">${totalCupons}</div></div>
     <div class="kpi"><div class="rot">Maior chance</div><div class="num">${linhas.length?Math.round(linhas[0].c.cupons/totalCupons*1000)/10:0}%</div><div class="pe">${linhas.length?esc(linhas[0].a.nome):'—'}</div></div>`;
   $('sorteio-tabela').innerHTML=linhas.length?`<table>
-    <thead><tr><th>#</th><th>Loja</th><th>Cidade</th><th class="num">Positivação</th><th class="num">Valor</th>
-      <th class="num">Base</th><th class="num">Multiplicador</th><th class="num">Cupons</th><th class="num">Chance</th></tr></thead>
+    <thead><tr><th>#</th><th>Loja</th><th>Cidade</th><th class="num">Positivação</th><th class="num">Mesas R$</th>
+      <th class="num">Coletiva</th><th class="num">Valor total</th><th class="num">Base</th><th class="num">Multiplicador</th><th class="num">Cupons</th><th class="num">Chance</th></tr></thead>
     <tbody>${linhas.map((l,i)=>`<tr>
       <td>${i+1}</td><td><b>${esc(l.a.nome)}</b></td><td>${esc(l.a.cidade||'')}</td>
-      <td class="num">${Math.round(l.c.pct)}%</td><td class="num">${brl(l.c.valor)}</td>
+      <td class="num">${Math.round(l.c.pct)}%</td><td class="num">${brl(l.c.valorMesas)}</td>
+      <td class="num">${l.c.coletiva>0?brl(l.c.coletiva):'—'}</td><td class="num"><b>${brl(l.c.valor)}</b></td>
       <td class="num">${l.c.base}</td>
       <td class="num">${l.c.mult>1?`<span class="tag tag-verde">×${l.c.mult}</span>`:'×1'}</td>
       <td class="num"><b style="color:var(--verde)">${l.c.cupons}</b></td>
@@ -969,9 +1052,10 @@ function baixarLista(tipo){
       for(let i=0;i<l.c.cupons;i++)out.push(et);});
     txt=out.join('\n');nome='cupons-sorteio.txt';
   }else{
-    txt='Loja;Cidade;Mesas;Positivacao;Valor;Base;Multiplicador;Cupons\n'+
+    const n2=v=>Number(v||0).toFixed(2).replace('.',',');
+    txt='Loja;Cidade;Mesas;Positivacao;Valor mesas;Compra coletiva;Valor total;Base;Multiplicador;Cupons\n'+
       linhas.map(l=>[l.a.nome,l.a.cidade||'',l.c.conc+'/'+l.c.total,Math.round(l.c.pct)+'%',
-        Number(l.c.valor).toFixed(2).replace('.',','),l.c.base,l.c.mult,l.c.cupons].join(';')).join('\n');
+        n2(l.c.valorMesas),n2(l.c.coletiva),n2(l.c.valor),l.c.base,l.c.mult,l.c.cupons].join(';')).join('\n');
     nome='resumo-positivacao.csv';
   }
   const blob=new Blob(['﻿'+txt],{type:'text/plain;charset=utf-8'});
