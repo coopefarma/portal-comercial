@@ -283,6 +283,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
     <div class="a-nav">
       <button id="nav-painel" class="ativo" onclick="irPara('painel')">Painel</button>
       <button id="nav-associados" onclick="irPara('associados')">Associados</button>
+      <button id="nav-industrias" onclick="irPara('industrias')">Indústrias</button>
       <button id="nav-sorteio" onclick="irPara('sorteio')">Sorteio</button>
       <button id="nav-regras" onclick="irPara('regras')">Regras</button>
       <button onclick="carregarTudo(true)" title="Atualizar">↻</button>
@@ -325,6 +326,24 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
         </div>
         <div class="rolagem" id="assoc-tabela"></div>
       </div>
+    </div>
+
+
+    <!-- INDÚSTRIAS -->
+    <div class="pagina" id="pg-industrias">
+      <div class="kpis" id="k-industrias"></div>
+      <div class="painel">
+        <div class="painel-cab">
+          <h3>Indústrias da rodada</h3>
+          <div class="dir">
+            <button class="btn btn-ghost btn-sm" onclick="ordenarIndustrias()">Reordenar A–Z</button>
+            <button class="btn btn-primary btn-sm" onclick="abrirIndustria(null)">+ Nova indústria</button>
+          </div>
+        </div>
+        <div class="rolagem" id="ind-tabela"></div>
+      </div>
+      <p class="nota" style="margin-top:12px">Incluir ou excluir indústria muda o denominador da positivação de todo mundo.
+        Se já houver lojas em campo, confira o aviso antes de salvar.</p>
     </div>
 
     <!-- SORTEIO -->
@@ -422,7 +441,8 @@ const sb=createClient(SB_URL,SB_KEY);
 const BASE=location.origin+location.pathname;
 
 let CFG=null;          // rn_config
-let INDS=[];           // rn_industrias
+let INDS=[];           // rn_industrias ativas (usadas no cálculo e no cartão)
+let INDS_ADMIN=[];     // todas, inclusive inativas — só na aba de gestão
 let ASSOCS=[];         // rn_associados (só retaguarda)
 let REGS=[];           // rn_registros
 let TOKEN=null;        // token do associado (modo cartão)
@@ -459,6 +479,9 @@ function mascaraMoeda(input){
 const lerMoeda=input=>{const d=soDigitos(input.value);return d?Number(d)/100:0;};
 
 /* ── o coração da campanha: cálculo de cupons ────────────── */
+/* indústria nova sobe a imagem para o banco; as 36 originais usam o arquivo */
+const logoDe=i=>i.logo||('logos/'+i.slug+'.png');
+
 function totalMesas(){return INDS.filter(i=>i.ativa&&i.conta_positivacao).length;}
 
 /* valorCC = Compra Coletiva. Soma ao volume comprado (gera cupom),
@@ -588,7 +611,7 @@ function renderCartao(){
     const rod=st==='concluido'?brl(r.valor):(st==='iniciado'?'Aguardando valor':esc(ind.nome));
     return `<div class="mesa ${st}" onclick="abrirMesa('${ind.id}')">
       ${selo?`<div class="selo">${selo}</div>`:''}
-      <img src="logos/${ind.slug}.png" alt="${esc(ind.nome)}" loading="lazy"/>
+      <img src="${logoDe(ind)}" alt="${esc(ind.nome)}" loading="lazy"/>
       <div class="rod">${rod}</div>
     </div>`;
   }).join('');
@@ -648,7 +671,7 @@ function abrirMesa(indId){
 
   $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
     <div class="modal">
-      <img class="m-logo" src="logos/${ind.slug}.png" alt="${esc(ind.nome)}"/>
+      <img class="m-logo" src="${logoDe(ind)}" alt="${esc(ind.nome)}"/>
       ${corpo}
     </div></div>`;
   const f=$('f-rep');if(f)setTimeout(()=>f.focus(),120);
@@ -712,17 +735,19 @@ function irPara(pag){
   const nav=$('nav-'+pag);if(nav)nav.classList.add('ativo');
   if(pag==='painel')renderPainel();
   if(pag==='associados')renderAssociados();
+  if(pag==='industrias')renderIndustrias();
   if(pag==='sorteio')renderSorteio();
   if(pag==='regras')renderRegras();
 }
 
 async function carregarTudo(aviso){
   await carregarBase();
-  const [a,r]=await Promise.all([
+  const [a,r,it]=await Promise.all([
     sb.from('rn_associados').select('*').order('nome'),
-    sb.from('rn_registros').select('*')
+    sb.from('rn_registros').select('*'),
+    sb.from('rn_industrias').select('*').order('ordem')
   ]);
-  ASSOCS=a.data||[];REGS=r.data||[];
+  ASSOCS=a.data||[];REGS=r.data||[];INDS_ADMIN=it.data||[];
   const ativa=document.querySelector('.pagina.ativo');
   irPara(ativa?ativa.id.replace('pg-',''):'painel');
   if(aviso)toast('Dados atualizados.');
@@ -809,7 +834,7 @@ function abrirDetalhe(assocId,focoInd){
     const st=r?r.status:'';
     const vl=r?(r.status==='concluido'?brl(r.valor):'aguardando valor'):'não visitada';
     return `<div class="det-item ${st}" onclick="editarRegistro('${assocId}','${i.id}')">
-      <img src="logos/${i.slug}.png" alt=""/>
+      <img src="${logoDe(i)}" alt=""/>
       <div class="info"><div class="nm">${esc(i.nome)}</div><div class="vl">${vl}</div></div>
     </div>`;
   }).join('');
@@ -845,7 +870,7 @@ function editarRegistro(assocId,indId){
   const val=r&&r.valor?Number(r.valor).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
   $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)abrirDetalhe('${assocId}')">
     <div class="modal">
-      <img class="m-logo" src="logos/${ind.slug}.png" alt=""/>
+      <img class="m-logo" src="${logoDe(ind)}" alt=""/>
       <div class="m-titulo">${esc(ind.nome)}</div>
       <div class="m-sub">${esc(a.nome)}</div>
       <div class="m-campo">
@@ -1019,6 +1044,194 @@ function novoToken(){
   return [...arr].map(n=>alfa[n%alfa.length]).join('');
 }
 
+/* ═══════════════════════════════════════════════════════════
+   INDÚSTRIAS — incluir, editar, ativar/desativar
+   O total de mesas do cálculo é o número de indústrias ativas
+   que contam positivação, então mexer aqui muda o denominador.
+   ═══════════════════════════════════════════════════════════ */
+const slugify=s=>(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'')
+  .toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,24);
+
+function renderIndustrias(){
+  const contam=INDS_ADMIN.filter(i=>i.ativa&&i.conta_positivacao).length;
+  const piso=Math.ceil(contam*Number(CFG.piso_positivacao)/100);
+  const faixas=[...(CFG.faixas||[])].sort((a,b)=>a.pct-b.pct);
+  $('k-industrias').innerHTML=`
+    <div class="kpi verde"><div class="rot">Mesas que contam</div><div class="num">${contam}</div><div class="pe">denominador da positivação</div></div>
+    <div class="kpi"><div class="rot">Cadastradas</div><div class="num">${INDS_ADMIN.length}</div><div class="pe">${INDS_ADMIN.filter(i=>!i.ativa).length} inativa(s)</div></div>
+    <div class="kpi"><div class="rot">Fica apto com</div><div class="num">${piso}</div><div class="pe">mesas (${CFG.piso_positivacao}%)</div></div>
+    `+faixas.map(f=>`<div class="kpi"><div class="rot">${esc(f.rotulo||f.pct+'%')}</div>
+       <div class="num">${Math.ceil(contam*Number(f.pct)/100)}</div><div class="pe">mesas (${f.pct}%)</div></div>`).join('');
+
+  $('ind-tabela').innerHTML=INDS_ADMIN.length?`<table>
+    <thead><tr><th>Logo</th><th>Indústria</th><th class="num">Ordem</th><th>Conta positivação</th>
+      <th>Situação</th><th class="num">Lançamentos</th><th>Ações</th></tr></thead>
+    <tbody>${INDS_ADMIN.map(i=>{
+      const usos=REGS.filter(r=>r.industria_id===i.id).length;
+      return `<tr style="${i.ativa?'':'opacity:.5'}">
+        <td><img src="${logoDe(i)}" alt="" style="height:26px;width:70px;object-fit:contain"/></td>
+        <td><b>${esc(i.nome)}</b></td>
+        <td class="num">${i.ordem}</td>
+        <td>${i.conta_positivacao?'<span class="tag tag-verde">sim</span>':'<span class="tag tag-cinza">não</span>'}</td>
+        <td>${i.ativa?'<span class="tag tag-verde">ativa</span>':'<span class="tag tag-cinza">inativa</span>'}</td>
+        <td class="num">${usos||'—'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-ghost btn-sm" onclick="abrirIndustria('${i.id}')">Editar</button>
+          <button class="btn btn-ghost btn-sm" onclick="alternarIndustria('${i.id}')">${i.ativa?'Desativar':'Ativar'}</button>
+          <button class="btn btn-perigo btn-sm" onclick="excluirIndustria('${i.id}')">Excluir</button>
+        </td></tr>`;}).join('')}</tbody></table>`
+    :'<div class="vazio">Nenhuma indústria cadastrada.</div>';
+}
+
+/* redimensiona a imagem antes de gravar, para não inchar o banco */
+function lerLogo(file){
+  return new Promise((ok,falha)=>{
+    if(file.size>8*1024*1024)return falha('Imagem muito grande (máx. 8 MB).');
+    const fr=new FileReader();
+    fr.onerror=()=>falha('Não consegui ler o arquivo.');
+    fr.onload=()=>{
+      const im=new Image();
+      im.onerror=()=>falha('Arquivo não parece ser uma imagem.');
+      im.onload=()=>{
+        const MW=264,MH=96,s=Math.min(MW/im.width,MH/im.height,1);
+        const cv=document.createElement('canvas');
+        cv.width=Math.max(1,Math.round(im.width*s));
+        cv.height=Math.max(1,Math.round(im.height*s));
+        const cx=cv.getContext('2d');
+        cx.imageSmoothingQuality='high';
+        cx.drawImage(im,0,0,cv.width,cv.height);
+        let out=cv.toDataURL('image/png');
+        try{const w=cv.toDataURL('image/webp',0.92);if(w.length<out.length*0.8&&w.startsWith('data:image/webp'))out=w;}catch(e){}
+        if(out.length>400000)return falha('Imagem pesada demais depois de reduzida. Use um logo mais simples.');
+        ok(out);
+      };
+      im.src=fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+let _logoNovo=null;   // data URI escolhido no modal aberto
+
+function abrirIndustria(id){
+  const i=id?INDS_ADMIN.find(x=>x.id===id):null;
+  _logoNovo=null;
+  const contamHoje=INDS_ADMIN.filter(x=>x.ativa&&x.conta_positivacao).length;
+  const depois=i?contamHoje:contamHoje+1;
+  $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
+    <div class="modal">
+      <div class="m-titulo">${i?'Editar indústria':'Nova indústria'}</div>
+      <div class="m-campo"><label>Nome da indústria</label>
+        <input id="i-nome" value="${esc(i?.nome||'')}" placeholder="Como vai aparecer no cartão"/></div>
+      <div class="m-campo">
+        <label>Logo</label>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div id="i-preview" style="width:120px;height:54px;border:1.5px solid var(--borda);border-radius:10px;
+               display:flex;align-items:center;justify-content:center;background:#fff;flex:none;overflow:hidden">
+            ${i?`<img src="${logoDe(i)}" style="max-width:108px;max-height:44px;object-fit:contain"/>`
+               :'<span style="font-size:11px;color:var(--cinza)">sem logo</span>'}
+          </div>
+          <input type="file" id="i-arq" accept="image/*" onchange="escolherLogo(this)" style="font-size:12.5px"/>
+        </div>
+        <div style="font-size:11.5px;color:var(--cinza);margin-top:6px">PNG com fundo transparente fica melhor. A imagem é reduzida automaticamente.</div>
+      </div>
+      <div class="m-campo"><label>Conta para a positivação</label>
+        <select id="i-conta">
+          <option value="1" ${!i||i.conta_positivacao?'selected':''}>Sim — é uma mesa</option>
+          <option value="0" ${i&&!i.conta_positivacao?'selected':''}>Não — aparece, mas fica fora do percentual</option>
+        </select></div>
+      ${i?`<div class="m-campo"><label>Situação</label>
+        <select id="i-ativa"><option value="1" ${i.ativa?'selected':''}>Ativa</option>
+        <option value="0" ${!i.ativa?'selected':''}>Inativa (some do cartão)</option></select></div>`:''}
+      <div class="m-erro" id="i-erro"></div>
+      <div class="m-acoes">
+        <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarIndustria(${i?`'${i.id}'`:'null'},this)">Salvar</button>
+      </div>
+      ${!i?`<div class="m-aviso">Incluir esta indústria leva o total de mesas de <b>${contamHoje}</b> para <b>${depois}</b>.
+        A positivação de quem já está em campo é recalculada: quem tinha ${Math.ceil(contamHoje/2)} de ${contamHoje}
+        (${Math.round(Math.ceil(contamHoje/2)/contamHoje*100)}%) passa a ter ${Math.round(Math.ceil(contamHoje/2)/depois*100)}%.
+        Se a rodada já começou, avise os associados.</div>`:''}
+    </div></div>`;
+  setTimeout(()=>$('i-nome').focus(),120);
+}
+
+async function escolherLogo(input){
+  const f=input.files&&input.files[0];
+  if(!f)return;
+  $('i-erro').textContent='';
+  try{
+    _logoNovo=await lerLogo(f);
+    $('i-preview').innerHTML=`<img src="${_logoNovo}" style="max-width:108px;max-height:44px;object-fit:contain"/>`;
+  }catch(msg){ _logoNovo=null; $('i-erro').textContent=msg||'Não consegui usar essa imagem.'; input.value=''; }
+}
+
+async function salvarIndustria(id,btn){
+  const nome=$('i-nome').value.trim();
+  if(nome.length<2){$('i-erro').textContent='Informe o nome da indústria.';return;}
+  const i=id?INDS_ADMIN.find(x=>x.id===id):null;
+  if(!i&&!_logoNovo){$('i-erro').textContent='Escolha a imagem do logo.';return;}
+  btn.disabled=true;btn.textContent='Salvando...';
+
+  const dados={nome,conta_positivacao:$('i-conta').value==='1'};
+  if(_logoNovo)dados.logo=_logoNovo;
+  if(i)dados.ativa=$('i-ativa').value==='1';
+
+  let error;
+  if(i){
+    ({error}=await sb.from('rn_industrias').update(dados).eq('id',id));
+  }else{
+    let base=slugify(nome)||('ind'+Date.now());
+    let slug=base,n=2;
+    while(INDS_ADMIN.some(x=>x.slug===slug)){slug=base+n;n++;}
+    dados.slug=slug;
+    dados.ordem=Math.max(0,...INDS_ADMIN.map(x=>x.ordem||0))+1;
+    dados.ativa=true;
+    ({error}=await sb.from('rn_industrias').insert(dados));
+  }
+  if(error){btn.disabled=false;btn.textContent='Salvar';
+    $('i-erro').textContent='Erro ao salvar. '+(error.message||'');return;}
+  fecharModal();
+  await carregarTudo();
+  irPara('industrias');
+  toast(i?'Indústria atualizada.':`Indústria incluída. O total de mesas agora é ${totalMesas()}.`);
+}
+
+async function alternarIndustria(id){
+  const i=INDS_ADMIN.find(x=>x.id===id);
+  const novo=!i.ativa;
+  if(!confirm(novo
+    ? `Ativar ${i.nome}? O total de mesas passa a ser ${totalMesas()+(i.conta_positivacao?1:0)}.`
+    : `Desativar ${i.nome}? Ela some do cartão dos associados e o total de mesas cai para ${totalMesas()-(i.conta_positivacao?1:0)}.`))return;
+  await sb.from('rn_industrias').update({ativa:novo}).eq('id',id);
+  await carregarTudo();irPara('industrias');
+  toast(novo?'Indústria ativada.':'Indústria desativada.');
+}
+
+async function excluirIndustria(id){
+  const i=INDS_ADMIN.find(x=>x.id===id);
+  const usos=REGS.filter(r=>r.industria_id===id).length;
+  if(usos){
+    alert(`${i.nome} já tem ${usos} lançamento(s) de loja. Excluir apagaria esses registros.\n\n`+
+          `Use "Desativar" — ela some do cartão e sai da conta da positivação, mas o histórico fica preservado.`);
+    return;
+  }
+  if(!confirm(`Excluir ${i.nome} de vez? O total de mesas cai para ${totalMesas()-(i.ativa&&i.conta_positivacao?1:0)}.`))return;
+  await sb.from('rn_industrias').delete().eq('id',id);
+  await carregarTudo();irPara('industrias');
+  toast('Indústria excluída.');
+}
+
+async function ordenarIndustrias(){
+  if(!confirm('Renumerar todas as indústrias em ordem alfabética?'))return;
+  const ord=[...INDS_ADMIN].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  for(let k=0;k<ord.length;k++){
+    if(ord[k].ordem!==k+1)await sb.from('rn_industrias').update({ordem:k+1}).eq('id',ord[k].id);
+  }
+  await carregarTudo();irPara('industrias');
+  toast('Ordem alfabética aplicada.');
+}
+
 /* ── SORTEIO ────────────────────────────────────────────── */
 function renderSorteio(){
   const linhas=linhasCalculadas().filter(l=>l.a.ativo&&l.c.cupons>0)
@@ -1105,7 +1318,7 @@ function abrirZerar(){
       <div class="m-sub">Isso apaga <b>${n} registro${n>1?'s':''}</b> de mesa de todas as lojas.
         Os associados, os links e as regras continuam como estão.</div>
       <div class="m-campo">
-        <label>Para confirmar, digite ZERAR</label>
+        <label>Digite a palavra ZERAR para liberar o botão</label>
         <input id="z-txt" autocomplete="off" placeholder="ZERAR" style="text-align:center;text-transform:uppercase;font-weight:700"
                oninput="document.getElementById('z-ok').disabled=this.value.trim().toUpperCase()!=='ZERAR'"/>
       </div>
@@ -1119,12 +1332,23 @@ function abrirZerar(){
 }
 
 async function confirmarZerar(btn){
+  const quantos=REGS.length;
   btn.disabled=true;btn.textContent='Apagando...';
   const {error}=await sb.from('rn_registros').delete().neq('status','__nenhum__');
   if(error){btn.disabled=false;btn.textContent='Apagar tudo';$('z-erro').textContent='Erro ao apagar. Tente de novo.';return;}
-  fecharModal();
   await carregarTudo();
-  toast('Lançamentos zerados. O mapa voltou ao início.');
+  const sobrou=REGS.length;
+  $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
+    <div class="modal">
+      <div style="font-size:42px;text-align:center;line-height:1">${sobrou?'⚠️':'✅'}</div>
+      <div class="m-titulo" style="margin-top:8px">${sobrou?'Zeramento incompleto':'Lançamentos zerados'}</div>
+      <div class="m-sub">${sobrou
+        ? `Foram apagados ${quantos-sobrou} registros, mas ainda restam <b>${sobrou}</b> no banco. Tente novamente.`
+        : `Os <b>${quantos} registro${quantos>1?'s':''}</b> de mesa foram apagados. Todas as lojas voltaram para <b>0 de ${totalMesas()}</b> e zero cupons.`}</div>
+      <div class="m-aviso">Os associados, os links, as indústrias e as regras continuam como estavam.
+        Os valores de Compra Coletiva também não foram tocados — se quiser zerá-los, use a coluna Compra Coletiva na aba Associados.</div>
+      <div class="m-acoes"><button class="btn btn-primary" onclick="fecharModal();irPara('painel')">Ver o painel</button></div>
+    </div></div>`;
 }
 
 function lerRegrasDoForm(){
