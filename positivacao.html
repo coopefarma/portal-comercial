@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<meta name="theme-color" content="#15a563"/>
+<title>Positivação — Rodada de Negócios Coopefarma</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --verde:#15a563; --verde-esc:#0e7a49; --escuro:#1a1a2e; --cinza:#64748b;
+  --amarelo:#e8a317; --amarelo-bg:#fff8e6; --verde-bg:#e9f9f1; --borda:#e2e8f0;
+  --vermelho:#dc2626;
+}
+body{font-family:'Inter',sans-serif;background:#f5f7fa;color:var(--escuro);min-height:100vh}
+button,input,select,textarea{font-family:inherit;font-size:inherit}
+.oculto{display:none!important}
+
+/* ═══════════ GENÉRICOS ═══════════ */
+.btn{border:none;border-radius:10px;padding:12px 18px;font-weight:600;cursor:pointer;transition:.15s;font-size:14px}
+.btn-primary{background:var(--verde);color:#fff}
+.btn-primary:hover{background:var(--verde-esc)}
+.btn-primary:disabled{background:#a7d9c0;cursor:not-allowed}
+.btn-ghost{background:#fff;color:var(--escuro);border:1px solid var(--borda)}
+.btn-ghost:hover{border-color:var(--verde);color:var(--verde)}
+.btn-perigo{background:#fff;color:var(--vermelho);border:1px solid #fecaca}
+.btn-perigo:hover{background:#fef2f2}
+.btn-sm{padding:7px 12px;font-size:12.5px;border-radius:8px}
+.spin{width:22px;height:22px;border:3px solid var(--borda);border-top-color:var(--verde);
+  border-radius:50%;animation:gira .8s linear infinite;margin:0 auto}
+@keyframes gira{to{transform:rotate(360deg)}}
+.carregando{padding:60px 20px;text-align:center;color:var(--cinza);font-size:14px}
+.vazio{padding:50px 20px;text-align:center;color:var(--cinza);font-size:14px}
+
+/* ═══════════ CARTÃO DIGITAL (associado) ═══════════ */
+#tela-cartao{padding-bottom:36px}
+.c-topo{background:linear-gradient(135deg,#0d1b2a,#14532d);color:#fff;padding:16px 18px 14px;text-align:center}
+.c-topo img{height:34px;margin-bottom:8px;background:#fff;border-radius:6px;padding:4px 8px}
+.c-evento{font-family:'Poppins',sans-serif;font-weight:800;font-size:15px;letter-spacing:.2px}
+.c-loja{font-size:13px;opacity:.85;margin-top:3px}
+
+.c-barra{position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid var(--borda);
+  box-shadow:0 2px 10px rgba(0,0,0,.06);padding:10px 12px 9px}
+.c-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:620px;margin:0 auto}
+.c-stat{text-align:center}
+.c-stat .rot{font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--cinza);font-weight:600}
+.c-stat .num{font-family:'Poppins',sans-serif;font-weight:800;font-size:17px;line-height:1.25;margin-top:1px}
+.c-stat.destaque .num{color:var(--verde)}
+.c-prog{max-width:620px;margin:9px auto 0;position:relative;height:8px;background:#eef2f6;border-radius:99px;overflow:visible}
+.c-prog-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#15a563,#22c55e);transition:width .4s;position:relative;z-index:1}
+.c-prog-marca{position:absolute;top:-3px;width:2px;height:14px;background:#cbd5e1;z-index:2;border-radius:2px}
+.c-prog-marca.batida{background:var(--verde-esc)}
+.c-meta{max-width:620px;margin:9px auto 0;text-align:center;font-size:12.5px;font-weight:600;
+  background:var(--amarelo-bg);border:1px solid #f5d78e;color:#8a5d00;border-radius:9px;padding:7px 10px}
+.c-meta.apto{background:var(--verde-bg);border-color:#a7e3c4;color:var(--verde-esc)}
+
+.c-legenda{max-width:620px;margin:14px auto 0;padding:0 12px;display:flex;gap:14px;justify-content:center;
+  font-size:11.5px;color:var(--cinza);flex-wrap:wrap}
+.c-legenda span{display:flex;align-items:center;gap:5px}
+.pip{width:11px;height:11px;border-radius:4px;border:2px solid}
+.pip.cinza{border-color:#cbd5e1;background:#fff}
+.pip.amarela{border-color:var(--amarelo);background:var(--amarelo-bg)}
+.pip.verde{border-color:var(--verde);background:var(--verde-bg)}
+
+.c-grade{max-width:620px;margin:12px auto 0;padding:0 12px;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+@media(min-width:520px){.c-grade{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:760px){.c-grade{max-width:900px;grid-template-columns:repeat(6,1fr)}
+  .c-stats,.c-prog,.c-meta,.c-legenda{max-width:900px}}
+.mesa{background:#fff;border:2px solid var(--borda);border-radius:13px;padding:9px 6px 7px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:92px;
+  transition:.15s;position:relative}
+.mesa:active{transform:scale(.97)}
+.mesa img{max-width:100%;max-height:42px;object-fit:contain;flex:1;min-height:0}
+.mesa .rod{font-size:10px;font-weight:700;color:#94a3b8;margin-top:6px;text-align:center;line-height:1.2}
+.mesa .selo{position:absolute;top:-7px;right:-5px;width:22px;height:22px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;font-weight:700;
+  box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.mesa.iniciado{border-color:var(--amarelo);background:var(--amarelo-bg)}
+.mesa.iniciado .rod{color:#8a5d00}
+.mesa.iniciado .selo{background:var(--amarelo)}
+.mesa.concluido{border-color:var(--verde);background:var(--verde-bg)}
+.mesa.concluido .rod{color:var(--verde-esc);font-size:11px}
+.mesa.concluido .selo{background:var(--verde)}
+
+/* ═══════════ MODAL ═══════════ */
+.overlay{position:fixed;inset:0;background:rgba(10,15,25,.55);z-index:90;display:flex;
+  align-items:flex-end;justify-content:center;padding:0;backdrop-filter:blur(2px)}
+@media(min-width:620px){.overlay{align-items:center;padding:20px}}
+.modal{background:#fff;width:100%;max-width:440px;border-radius:18px 18px 0 0;padding:20px 20px 26px;
+  max-height:92vh;overflow-y:auto;animation:sobe .2s ease-out}
+@media(min-width:620px){.modal{border-radius:18px;animation:none}}
+@keyframes sobe{from{transform:translateY(28px)}to{transform:translateY(0)}}
+.modal.largo{max-width:900px}
+.m-logo{height:52px;display:block;margin:2px auto 10px;object-fit:contain;max-width:70%}
+.m-titulo{font-family:'Poppins',sans-serif;font-weight:700;font-size:17px;text-align:center}
+.m-sub{font-size:13px;color:var(--cinza);text-align:center;margin-top:5px;line-height:1.45}
+.m-campo{margin-top:14px}
+.m-campo label{display:block;font-size:12px;font-weight:700;color:var(--cinza);margin-bottom:5px;
+  text-transform:uppercase;letter-spacing:.3px}
+.m-campo input,.m-campo select,.m-campo textarea{width:100%;border:1.5px solid var(--borda);border-radius:10px;
+  padding:12px 13px;font-size:15px;outline:none;transition:.15s;background:#fff;color:var(--escuro)}
+.m-campo input:focus,.m-campo select:focus{border-color:var(--verde)}
+.m-campo input.valor{font-size:22px;font-weight:700;text-align:center;font-family:'Poppins',sans-serif}
+.m-acoes{display:flex;gap:9px;margin-top:20px}
+.m-acoes .btn{flex:1;padding:14px}
+.m-erro{color:var(--vermelho);font-size:12.5px;margin-top:10px;text-align:center;font-weight:600}
+.m-aviso{background:#f8fafc;border:1px solid var(--borda);border-radius:10px;padding:11px 13px;
+  font-size:12px;color:var(--cinza);line-height:1.5;margin-top:14px}
+.m-resumo{background:var(--verde-bg);border:1px solid #a7e3c4;border-radius:12px;padding:14px;margin-top:14px}
+.m-resumo .lin{display:flex;justify-content:space-between;font-size:13px;padding:3px 0}
+.m-resumo .lin b{font-weight:700}
+.m-resumo .val{font-family:'Poppins',sans-serif;font-weight:800;font-size:22px;color:var(--verde-esc);
+  text-align:center;padding:4px 0 8px}
+
+/* ═══════════ LOGIN ═══════════ */
+#tela-login{display:none;align-items:center;justify-content:center;min-height:100vh;
+  background:linear-gradient(135deg,#0d1b2a,#1b4332);padding:20px}
+.login-box{background:#fff;border-radius:16px;padding:32px 28px;width:100%;max-width:380px;
+  box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.login-box img{height:46px;display:block;margin:0 auto 10px}
+.login-box h2{font-family:'Poppins',sans-serif;font-size:19px;text-align:center}
+.login-box p{font-size:12.5px;color:var(--cinza);text-align:center;margin:4px 0 20px}
+.login-box label{display:block;font-size:12px;font-weight:700;color:var(--cinza);margin:12px 0 5px}
+.login-box input{width:100%;border:1.5px solid var(--borda);border-radius:10px;padding:12px;font-size:15px;outline:none}
+.login-box input:focus{border-color:var(--verde)}
+.login-erro{color:var(--vermelho);font-size:12.5px;margin-top:10px;min-height:16px;text-align:center}
+
+/* ═══════════ RETAGUARDA ═══════════ */
+#tela-admin{display:none;flex-direction:column;min-height:100vh}
+.a-topo{background:#fff;border-bottom:1px solid var(--borda);padding:10px 16px;display:flex;
+  align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:50}
+.a-topo .marca{display:flex;align-items:center;gap:9px;font-family:'Poppins',sans-serif;font-weight:700;font-size:15px}
+.a-topo .marca img{height:28px}
+.a-nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+.a-nav button{background:transparent;border:none;padding:8px 13px;border-radius:8px;font-weight:600;
+  font-size:13.5px;color:var(--cinza);cursor:pointer}
+.a-nav button.ativo{background:var(--verde);color:#fff}
+.a-nav button:not(.ativo):hover{background:#f1f5f9;color:var(--escuro)}
+.a-user{font-size:11.5px;color:var(--cinza)}
+.a-corpo{padding:18px;flex:1}
+.pagina{display:none}.pagina.ativo{display:block}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:#fff;border:1px solid var(--borda);border-radius:13px;padding:14px 16px}
+.kpi .rot{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--cinza);font-weight:700}
+.kpi .num{font-family:'Poppins',sans-serif;font-weight:800;font-size:25px;margin-top:3px}
+.kpi .pe{font-size:11.5px;color:var(--cinza);margin-top:2px}
+.kpi.verde .num{color:var(--verde)}
+
+.painel{background:#fff;border:1px solid var(--borda);border-radius:13px;overflow:hidden}
+.painel-cab{padding:13px 16px;border-bottom:1px solid var(--borda);display:flex;align-items:center;
+  gap:10px;flex-wrap:wrap}
+.painel-cab h3{font-family:'Poppins',sans-serif;font-size:15px;font-weight:700}
+.painel-cab .dir{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.busca{border:1.5px solid var(--borda);border-radius:9px;padding:8px 12px;font-size:13.5px;outline:none;min-width:200px}
+.busca:focus{border-color:var(--verde)}
+
+.rolagem{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:9px 11px;text-align:left;border-bottom:1px solid #f1f5f9;white-space:nowrap}
+th{background:#f8fafc;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--cinza);
+  font-weight:700;position:sticky;top:0;z-index:2}
+tbody tr:hover{background:#fafcfe}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700}
+.tag-verde{background:var(--verde-bg);color:var(--verde-esc)}
+.tag-cinza{background:#f1f5f9;color:var(--cinza)}
+.tag-amarela{background:var(--amarelo-bg);color:#8a5d00}
+
+/* matriz */
+.matriz{border-collapse:separate;border-spacing:0;font-size:12px}
+.matriz th.ind{width:26px;min-width:26px;padding:0;height:120px;vertical-align:bottom;background:#f8fafc}
+.matriz th.ind div{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;font-weight:600;
+  color:var(--escuro);text-transform:none;letter-spacing:0;padding:6px 0 8px;white-space:nowrap}
+.matriz td.cel{width:26px;min-width:26px;padding:3px;text-align:center}
+.matriz .bolinha{width:17px;height:17px;border-radius:5px;border:1.5px solid #dbe3ec;background:#fff;
+  display:inline-block;cursor:pointer}
+.matriz .bolinha.iniciado{border-color:var(--amarelo);background:var(--amarelo)}
+.matriz .bolinha.concluido{border-color:var(--verde);background:var(--verde)}
+.matriz td.loja,.matriz th.loja{position:sticky;left:0;background:#fff;z-index:3;min-width:210px;
+  border-right:1px solid var(--borda)}
+.matriz th.loja{background:#f8fafc;z-index:4}
+.matriz td.loja .n{font-weight:600}
+.matriz td.loja .c{font-size:11px;color:var(--cinza)}
+.matriz tbody tr:hover td.loja{background:#fafcfe}
+
+.linha-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:16px}
+.linha-form label{display:block;font-size:11.5px;font-weight:700;color:var(--cinza);margin-bottom:5px;
+  text-transform:uppercase;letter-spacing:.3px}
+.linha-form input{width:100%;border:1.5px solid var(--borda);border-radius:9px;padding:10px 12px;font-size:14px;outline:none}
+.linha-form input:focus{border-color:var(--verde)}
+.nota{font-size:12px;color:var(--cinza);line-height:1.55}
+.aviso-cfg{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;
+  font-size:12.5px;color:#78350f;line-height:1.55;margin:16px}
+
+.det-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:9px;margin-top:14px}
+.det-item{border:1.5px solid var(--borda);border-radius:11px;padding:10px 12px;display:flex;
+  align-items:center;gap:10px;cursor:pointer;background:#fff}
+.det-item:hover{border-color:var(--verde)}
+.det-item.iniciado{border-color:var(--amarelo);background:var(--amarelo-bg)}
+.det-item.concluido{border-color:var(--verde);background:var(--verde-bg)}
+.det-item img{height:26px;width:66px;object-fit:contain;flex-shrink:0}
+.det-item .info{min-width:0;flex:1}
+.det-item .nm{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.det-item .vl{font-size:12.5px;color:var(--cinza);font-variant-numeric:tabular-nums}
+.det-item.concluido .vl{color:var(--verde-esc);font-weight:700}
+
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--escuro);color:#fff;
+  padding:12px 20px;border-radius:11px;font-size:13.5px;font-weight:600;z-index:200;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);animation:sobe .2s}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ CARTÃO DIGITAL ══════════════════ -->
+<div id="tela-cartao" class="oculto">
+  <div class="c-topo">
+    <img src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
+    <div class="c-evento" id="c-evento">11ª Rodada de Negócios</div>
+    <div class="c-loja" id="c-loja">—</div>
+  </div>
+
+  <div class="c-barra">
+    <div class="c-stats">
+      <div class="c-stat"><div class="rot">Mesas</div><div class="num" id="s-mesas">0/36</div></div>
+      <div class="c-stat destaque"><div class="rot">Positivação</div><div class="num" id="s-pct">0%</div></div>
+      <div class="c-stat"><div class="rot">Compras</div><div class="num" id="s-valor">R$ 0</div></div>
+      <div class="c-stat destaque"><div class="rot">Cupons</div><div class="num" id="s-cupons">0</div></div>
+    </div>
+    <div class="c-prog"><div class="c-prog-fill" id="s-fill" style="width:0%"></div></div>
+    <div class="c-meta" id="s-meta">—</div>
+  </div>
+
+  <div class="c-legenda">
+    <span><i class="pip cinza"></i> Não visitada</span>
+    <span><i class="pip amarela"></i> Pedido iniciado</span>
+    <span><i class="pip verde"></i> Valor registrado</span>
+  </div>
+
+  <div class="c-grade" id="c-grade"></div>
+</div>
+
+<!-- ══════════════════ LOGIN ══════════════════ -->
+<div id="tela-login">
+  <div class="login-box">
+    <img src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
+    <h2>Positivação</h2>
+    <p>Retaguarda da Rodada de Negócios</p>
+    <label>E-mail</label>
+    <input type="email" id="l-email" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('l-senha').focus()"/>
+    <label>Senha</label>
+    <input type="password" id="l-senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"/>
+    <div class="login-erro" id="l-erro"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:14px;padding:13px" onclick="fazerLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- ══════════════════ RETAGUARDA ══════════════════ -->
+<div id="tela-admin">
+  <div class="a-topo">
+    <div class="marca">
+      <img src="https://raw.githubusercontent.com/coopefarma/portal-cotacao/main/Coopefarma_Marca_1.jpg" alt="Coopefarma"/>
+      <span>Positivação</span>
+    </div>
+    <div class="a-nav">
+      <button id="nav-painel" class="ativo" onclick="irPara('painel')">Painel</button>
+      <button id="nav-associados" onclick="irPara('associados')">Associados</button>
+      <button id="nav-sorteio" onclick="irPara('sorteio')">Sorteio</button>
+      <button id="nav-regras" onclick="irPara('regras')">Regras</button>
+      <button onclick="carregarTudo(true)" title="Atualizar">↻</button>
+      <button onclick="sair()">Sair</button>
+    </div>
+    <div class="a-user" id="a-user"></div>
+  </div>
+
+  <div class="a-corpo">
+    <!-- PAINEL -->
+    <div class="pagina ativo" id="pg-painel">
+      <div class="kpis" id="k-painel"></div>
+      <div class="painel">
+        <div class="painel-cab">
+          <h3>Mapa de positivação</h3>
+          <div class="dir">
+            <input class="busca" id="f-painel" placeholder="Buscar loja ou cidade..." oninput="renderPainel()"/>
+            <select class="busca" id="f-ordem" onchange="renderPainel()" style="min-width:auto">
+              <option value="nome">Ordem alfabética</option>
+              <option value="cupons">Mais cupons</option>
+              <option value="pct">Maior positivação</option>
+              <option value="valor">Maior valor</option>
+            </select>
+          </div>
+        </div>
+        <div class="rolagem" id="painel-tabela"></div>
+      </div>
+      <p class="nota" style="margin-top:12px">Clique no nome da loja para abrir o detalhe e corrigir valores. Clique numa bolinha para ir direto naquela mesa.</p>
+    </div>
+
+    <!-- ASSOCIADOS -->
+    <div class="pagina" id="pg-associados">
+      <div class="painel">
+        <div class="painel-cab">
+          <h3>Associados e links</h3>
+          <div class="dir">
+            <input class="busca" id="f-assoc" placeholder="Buscar..." oninput="renderAssociados()"/>
+            <button class="btn btn-primary btn-sm" onclick="abrirAssociado(null)">+ Novo associado</button>
+          </div>
+        </div>
+        <div class="rolagem" id="assoc-tabela"></div>
+      </div>
+    </div>
+
+    <!-- SORTEIO -->
+    <div class="pagina" id="pg-sorteio">
+      <div class="kpis" id="k-sorteio"></div>
+      <div class="painel">
+        <div class="painel-cab">
+          <h3>Lojas aptas e cupons</h3>
+          <div class="dir">
+            <button class="btn btn-ghost btn-sm" onclick="baixarLista('resumo')">Baixar resumo (CSV)</button>
+            <button class="btn btn-primary btn-sm" onclick="baixarLista('cupons')">Baixar cupons (1 por linha)</button>
+          </div>
+        </div>
+        <div class="rolagem" id="sorteio-tabela"></div>
+      </div>
+      <p class="nota" style="margin-top:12px">O arquivo de cupons traz o nome da loja repetido uma vez por cupom — é o formato que os sorteadores online (Sorteador.com.br, Sortea.me) aceitam colando direto na lista de participantes.</p>
+    </div>
+
+    <!-- REGRAS -->
+    <div class="pagina" id="pg-regras">
+      <div class="painel" style="max-width:720px">
+        <div class="painel-cab"><h3>Regras da campanha</h3></div>
+        <div class="linha-form">
+          <div>
+            <label>Nome do evento</label>
+            <input id="r-evento"/>
+          </div>
+          <div>
+            <label>Piso de positivação (%)</label>
+            <input id="r-piso" type="number" step="1" min="0" max="100"/>
+          </div>
+          <div>
+            <label>R$ por cupom</label>
+            <input id="r-valor" type="number" step="50" min="1"/>
+          </div>
+        </div>
+        <div class="linha-form" style="padding-top:0">
+          <div>
+            <label>Faixa 1 — % / multiplicador</label>
+            <div style="display:flex;gap:8px">
+              <input id="r-f1p" type="number" step="1" placeholder="60"/>
+              <input id="r-f1m" type="number" step="0.05" placeholder="1.25"/>
+            </div>
+          </div>
+          <div>
+            <label>Faixa 2 — % / multiplicador</label>
+            <div style="display:flex;gap:8px">
+              <input id="r-f2p" type="number" step="1" placeholder="70"/>
+              <input id="r-f2m" type="number" step="0.05" placeholder="1.5"/>
+            </div>
+          </div>
+          <div>
+            <label>Faixa 3 — % / multiplicador</label>
+            <div style="display:flex;gap:8px">
+              <input id="r-f3p" type="number" step="1" placeholder="80"/>
+              <input id="r-f3m" type="number" step="0.05" placeholder="2"/>
+            </div>
+          </div>
+        </div>
+        <div class="aviso-cfg" id="r-simulacao"></div>
+        <div style="padding:0 16px 18px">
+          <button class="btn btn-primary" onclick="salvarRegras()">Salvar regras</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modais"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   POSITIVAÇÃO — Rodada de Negócios Coopefarma
+   Uma página, dois modos:
+     positivacao.html?t=<token>  → cartão digital do associado
+     positivacao.html            → login + retaguarda
+   ═══════════════════════════════════════════════════════════════ */
+const SB_URL='https://uofcbqqbubvvltnzvhsx.supabase.co';
+const SB_KEY='sb_publishable_SQ0x7RDU9B0u5lqvn2pr1Q_4NwoJMY9';
+const {createClient}=supabase;
+const sb=createClient(SB_URL,SB_KEY);
+const BASE=location.origin+location.pathname;
+
+let CFG=null;          // rn_config
+let INDS=[];           // rn_industrias
+let ASSOCS=[];         // rn_associados (só retaguarda)
+let REGS=[];           // rn_registros
+let TOKEN=null;        // token do associado (modo cartão)
+let EU=null;           // associado logado no cartão
+let EMAIL='';          // e-mail da retaguarda
+
+/* ── utilitários ─────────────────────────────────────────── */
+const $=id=>document.getElementById(id);
+const brl=v=>'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const brlCurto=v=>{const n=Number(v||0);
+  if(n>=1000000)return 'R$ '+(n/1000000).toFixed(1).replace('.',',')+'M';
+  if(n>=1000)return 'R$ '+(n/1000).toFixed(1).replace('.',',')+'k';
+  return 'R$ '+n.toFixed(0);};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const soDigitos=s=>String(s||'').replace(/\D/g,'');
+
+function toast(msg){
+  const d=document.createElement('div');d.className='toast';d.textContent=msg;
+  document.body.appendChild(d);setTimeout(()=>d.remove(),2600);
+}
+function telefoneFmt(t){
+  const d=soDigitos(t);
+  if(d.length===11)return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+  if(d.length===10)return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+  return t||'';
+}
+/* máscara de moeda: usuário digita só números, vira 1.234,56 */
+function mascaraMoeda(input){
+  const d=soDigitos(input.value).replace(/^0+/,'');
+  if(!d){input.value='';return;}
+  const n=Number(d)/100;
+  input.value=n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+const lerMoeda=input=>{const d=soDigitos(input.value);return d?Number(d)/100:0;};
+
+/* ── o coração da campanha: cálculo de cupons ────────────── */
+function totalMesas(){return INDS.filter(i=>i.ativa&&i.conta_positivacao).length;}
+
+function calcular(regsDaLoja){
+  const total=totalMesas();
+  const conc=regsDaLoja.filter(r=>r.status==='concluido');
+  const ini=regsDaLoja.filter(r=>r.status==='iniciado');
+  const valor=conc.reduce((s,r)=>s+Number(r.valor||0),0);
+  const pct=total?(conc.length/total)*100:0;
+  const apto=pct>=Number(CFG.piso_positivacao);
+  let mult=1,rotulo=null;
+  const faixas=[...(CFG.faixas||[])].sort((a,b)=>b.pct-a.pct);
+  for(const f of faixas){if(pct>=f.pct){mult=Number(f.mult);rotulo=f.rotulo;break;}}
+  const base=Math.floor(valor/Number(CFG.valor_por_cupom||500));
+  const cupons=apto?Math.floor(base*mult):0;
+  return {total,conc:conc.length,ini:ini.length,valor,pct,apto,mult,rotulo,base,cupons};
+}
+
+/* quantas mesas faltam para o próximo degrau */
+function proximaMeta(concluidas){
+  const total=totalMesas();
+  const alvos=[{pct:Number(CFG.piso_positivacao),txt:'ficar apto ao sorteio'}]
+    .concat([...(CFG.faixas||[])].sort((a,b)=>a.pct-b.pct).map(f=>({pct:Number(f.pct),txt:f.rotulo})));
+  for(const a of alvos){
+    if(a.pct<=0)continue;
+    const need=Math.ceil(total*a.pct/100);
+    if(concluidas<need)return {faltam:need-concluidas,txt:a.txt,pct:a.pct};
+  }
+  return null;
+}
+
+/* ── carga de dados ──────────────────────────────────────── */
+async function carregarBase(){
+  const [c,i]=await Promise.all([
+    sb.from('rn_config').select('*').eq('id',1).single(),
+    sb.from('rn_industrias').select('*').eq('ativa',true).order('ordem')
+  ]);
+  CFG=c.data||{evento_nome:'Rodada de Negócios',piso_positivacao:50,valor_por_cupom:500,
+    faixas:[{pct:80,mult:2},{pct:70,mult:1.5},{pct:60,mult:1.25}]};
+  INDS=i.data||[];
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODO 1 — CARTÃO DIGITAL DO ASSOCIADO
+   ═══════════════════════════════════════════════════════════ */
+async function initCartao(){
+  $('tela-cartao').classList.remove('oculto');
+  $('c-grade').innerHTML='<div class="carregando" style="grid-column:1/-1"><div class="spin"></div>Carregando seu cartão...</div>';
+  await carregarBase();
+  const {data}=await sb.from('rn_associados').select('*').eq('token',TOKEN).maybeSingle();
+  if(!data||!data.ativo){
+    $('c-grade').innerHTML='<div class="vazio" style="grid-column:1/-1">Link inválido ou desativado.<br>Fale com a equipe da Coopefarma.</div>';
+    return;
+  }
+  EU=data;
+  $('c-evento').textContent=CFG.evento_nome;
+  $('c-loja').textContent=EU.nome+(EU.cidade?' — '+EU.cidade:'');
+  document.title='Positivação — '+EU.nome;
+  await atualizarCartao();
+  setInterval(()=>{if(!document.querySelector('.overlay'))atualizarCartao();},20000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)atualizarCartao();});
+}
+
+async function atualizarCartao(){
+  const {data}=await sb.from('rn_registros').select('*').eq('associado_id',EU.id);
+  REGS=data||[];
+  renderCartao();
+}
+
+function regDe(indId){return REGS.find(r=>r.industria_id===indId)||null;}
+
+function renderCartao(){
+  const c=calcular(REGS);
+  $('s-mesas').textContent=c.conc+'/'+c.total;
+  $('s-pct').textContent=Math.round(c.pct)+'%';
+  $('s-valor').textContent=brlCurto(c.valor);
+  $('s-cupons').textContent=c.cupons;
+  $('s-fill').style.width=Math.min(100,c.pct)+'%';
+
+  // marcações do piso e das faixas na barra
+  const prog=$('s-fill').parentElement;
+  prog.querySelectorAll('.c-prog-marca').forEach(e=>e.remove());
+  const marcas=[Number(CFG.piso_positivacao),...(CFG.faixas||[]).map(f=>Number(f.pct))];
+  marcas.forEach(p=>{
+    if(p<=0||p>=100)return;
+    const d=document.createElement('div');
+    d.className='c-prog-marca'+(c.pct>=p?' batida':'');
+    d.style.left=p+'%';prog.appendChild(d);
+  });
+
+  const meta=proximaMeta(c.conc);
+  const el=$('s-meta');
+  const falta=m=>(m.faltam>1?'Faltam <b>'+m.faltam+' mesas</b>':'Falta <b>1 mesa</b>')+' para '+esc(m.txt)+'.';
+  if(!meta){
+    el.className='c-meta apto';
+    el.innerHTML='🏆 Positivação máxima! Você está com <b>'+c.cupons+' cupons</b> no sorteio.';
+  }else if(!c.apto){
+    el.className='c-meta';
+    el.innerHTML=falta(meta);
+  }else{
+    el.className='c-meta apto';
+    el.innerHTML='✅ Apto ao sorteio'+(c.rotulo?' com <b>'+esc(c.rotulo)+'</b>':'')+'. '+falta(meta);
+  }
+
+  $('c-grade').innerHTML=INDS.map(ind=>{
+    const r=regDe(ind.id);
+    const st=r?r.status:'';
+    const selo=st==='concluido'?'✓':(st==='iniciado'?'⏳':'');
+    const rod=st==='concluido'?brl(r.valor):(st==='iniciado'?'Aguardando valor':esc(ind.nome));
+    return `<div class="mesa ${st}" onclick="abrirMesa('${ind.id}')">
+      ${selo?`<div class="selo">${selo}</div>`:''}
+      <img src="logos/${ind.slug}.png" alt="${esc(ind.nome)}" loading="lazy"/>
+      <div class="rod">${rod}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ── modal da mesa ───────────────────────────────────────── */
+function fecharModal(){$('modais').innerHTML='';}
+
+function abrirMesa(indId){
+  const ind=INDS.find(i=>i.id===indId);
+  const r=regDe(indId);
+  let corpo;
+
+  if(!r){
+    corpo=`
+      <div class="m-titulo">Mesa da ${esc(ind.nome)}</div>
+      <div class="m-sub">Marque que você passou por aqui. A mesa fica <b>amarela</b> até o representante lançar o valor da compra.</div>
+      <div class="m-acoes">
+        <button class="btn btn-ghost" onclick="fecharModal()">Voltar</button>
+        <button class="btn btn-primary" onclick="iniciarMesa('${indId}',this)">Iniciar pedido</button>
+      </div>`;
+  }else if(r.status==='iniciado'){
+    corpo=`
+      <div class="m-titulo">${esc(ind.nome)}</div>
+      <div class="m-sub">Preenchimento pelo <b>representante da indústria</b>.</div>
+      <div class="m-campo">
+        <label>Nome completo do representante</label>
+        <input id="f-rep" placeholder="Como está no crachá" autocomplete="off"/>
+      </div>
+      <div class="m-campo">
+        <label>Telefone do representante</label>
+        <input id="f-tel" inputmode="numeric" placeholder="(84) 99999-9999" autocomplete="off"
+               oninput="this.value=telefoneFmt(this.value)"/>
+      </div>
+      <div class="m-campo">
+        <label>Valor total do pedido</label>
+        <input id="f-val" class="valor" inputmode="numeric" placeholder="0,00" oninput="mascaraMoeda(this)"/>
+      </div>
+      <div class="m-erro" id="f-erro"></div>
+      <div class="m-acoes">
+        <button class="btn btn-ghost" onclick="fecharModal()">Agora não</button>
+        <button class="btn btn-primary" onclick="concluirMesa('${indId}',this)">Concluir registro</button>
+      </div>
+      <div class="m-aviso">Depois de concluído, o valor só pode ser alterado pela retaguarda da Coopefarma.</div>`;
+  }else{
+    corpo=`
+      <div class="m-titulo">${esc(ind.nome)}</div>
+      <div class="m-resumo">
+        <div class="val">${brl(r.valor)}</div>
+        <div class="lin"><span>Representante</span><b>${esc(r.rep_nome||'—')}</b></div>
+        <div class="lin"><span>Telefone</span><b>${esc(telefoneFmt(r.rep_telefone))}</b></div>
+        <div class="lin"><span>Registrado em</span><b>${new Date(r.concluido_em||r.iniciado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</b></div>
+      </div>
+      <div class="m-aviso">Valor errado ou compra complementar? Procure a equipe da Coopefarma — a correção é feita na retaguarda.</div>
+      <div class="m-acoes"><button class="btn btn-primary" onclick="fecharModal()">Fechar</button></div>`;
+  }
+
+  $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
+    <div class="modal">
+      <img class="m-logo" src="logos/${ind.slug}.png" alt="${esc(ind.nome)}"/>
+      ${corpo}
+    </div></div>`;
+  const f=$('f-rep');if(f)setTimeout(()=>f.focus(),120);
+}
+
+async function iniciarMesa(indId,btn){
+  btn.disabled=true;btn.textContent='Salvando...';
+  const {error}=await sb.from('rn_registros').insert({
+    associado_id:EU.id,industria_id:indId,status:'iniciado'
+  });
+  if(error&&error.code!=='23505'){btn.disabled=false;btn.textContent='Iniciar pedido';toast('Erro ao salvar. Tente de novo.');return;}
+  await atualizarCartao();
+  fecharModal();
+  toast('Mesa marcada. Volte quando tiver o valor.');
+}
+
+async function concluirMesa(indId,btn){
+  const rep=$('f-rep').value.trim();
+  const tel=$('f-tel').value.trim();
+  const val=lerMoeda($('f-val'));
+  const err=$('f-erro');
+  if(rep.split(/\s+/).length<2){err.textContent='Informe o nome completo do representante.';return;}
+  if(soDigitos(tel).length<10){err.textContent='Informe um telefone válido com DDD.';return;}
+  if(!(val>0)){err.textContent='Informe o valor total do pedido.';return;}
+  err.textContent='';
+  btn.disabled=true;btn.textContent='Salvando...';
+  const {error}=await sb.from('rn_registros').update({
+    status:'concluido',valor:val,rep_nome:rep,rep_telefone:soDigitos(tel),concluido_em:new Date().toISOString()
+  }).eq('associado_id',EU.id).eq('industria_id',indId);
+  if(error){btn.disabled=false;btn.textContent='Concluir registro';err.textContent='Erro ao salvar. Tente de novo.';return;}
+  await atualizarCartao();
+  fecharModal();
+  const c=calcular(REGS);
+  toast('Registrado! '+c.conc+' mesas · '+c.cupons+' cupons');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODO 2 — RETAGUARDA
+   ═══════════════════════════════════════════════════════════ */
+async function fazerLogin(){
+  const email=$('l-email').value.trim(), senha=$('l-senha').value;
+  $('l-erro').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email,password:senha});
+  if(error){$('l-erro').textContent='E-mail ou senha incorretos.';return;}
+  EMAIL=data.user.email;
+  entrarAdmin();
+}
+async function sair(){await sb.auth.signOut();location.reload();}
+
+async function entrarAdmin(){
+  $('tela-login').style.display='none';
+  $('tela-admin').style.display='flex';
+  $('a-user').textContent=EMAIL;
+  await carregarTudo();
+}
+
+function irPara(pag){
+  document.querySelectorAll('.pagina').forEach(p=>p.classList.remove('ativo'));
+  document.querySelectorAll('.a-nav button').forEach(b=>b.classList.remove('ativo'));
+  $('pg-'+pag).classList.add('ativo');
+  const nav=$('nav-'+pag);if(nav)nav.classList.add('ativo');
+  if(pag==='painel')renderPainel();
+  if(pag==='associados')renderAssociados();
+  if(pag==='sorteio')renderSorteio();
+  if(pag==='regras')renderRegras();
+}
+
+async function carregarTudo(aviso){
+  await carregarBase();
+  const [a,r]=await Promise.all([
+    sb.from('rn_associados').select('*').order('nome'),
+    sb.from('rn_registros').select('*')
+  ]);
+  ASSOCS=a.data||[];REGS=r.data||[];
+  const ativa=document.querySelector('.pagina.ativo');
+  irPara(ativa?ativa.id.replace('pg-',''):'painel');
+  if(aviso)toast('Dados atualizados.');
+}
+
+function linhasCalculadas(){
+  return ASSOCS.map(a=>{
+    const regs=REGS.filter(r=>r.associado_id===a.id);
+    return {a,regs,c:calcular(regs)};
+  });
+}
+
+/* ── PAINEL ─────────────────────────────────────────────── */
+function renderPainel(){
+  const linhas=linhasCalculadas();
+  const ativos=linhas.filter(l=>l.a.ativo);
+  const totalValor=ativos.reduce((s,l)=>s+l.c.valor,0);
+  const totalCupons=ativos.reduce((s,l)=>s+l.c.cupons,0);
+  const aptas=ativos.filter(l=>l.c.apto).length;
+  const mesasFeitas=ativos.reduce((s,l)=>s+l.c.conc,0);
+  const mesasPossiveis=ativos.length*totalMesas();
+  const pendentes=ativos.reduce((s,l)=>s+l.c.ini,0);
+
+  $('k-painel').innerHTML=`
+    <div class="kpi"><div class="rot">Lojas em campo</div><div class="num">${ativos.filter(l=>l.c.conc+l.c.ini>0).length}</div><div class="pe">de ${ativos.length} cadastradas</div></div>
+    <div class="kpi verde"><div class="rot">Lojas aptas</div><div class="num">${aptas}</div><div class="pe">a partir de ${CFG.piso_positivacao}% de positivação</div></div>
+    <div class="kpi"><div class="rot">Positivação geral</div><div class="num">${mesasPossiveis?Math.round(mesasFeitas/mesasPossiveis*100):0}%</div><div class="pe">${mesasFeitas} de ${mesasPossiveis} mesas</div></div>
+    <div class="kpi"><div class="rot">Aguardando valor</div><div class="num" style="color:var(--amarelo)">${pendentes}</div><div class="pe">mesas iniciadas sem lançamento</div></div>
+    <div class="kpi"><div class="rot">Volume negociado</div><div class="num">${brlCurto(totalValor)}</div><div class="pe">soma dos pedidos concluídos</div></div>
+    <div class="kpi verde"><div class="rot">Cupons gerados</div><div class="num">${totalCupons}</div><div class="pe">para o sorteio das 20 TVs</div></div>`;
+
+  const q=($('f-painel').value||'').toLowerCase().trim();
+  const ordem=$('f-ordem').value;
+  let lista=ativos.filter(l=>!q||l.a.nome.toLowerCase().includes(q)||(l.a.cidade||'').toLowerCase().includes(q));
+  const ord={nome:(x,y)=>x.a.nome.localeCompare(y.a.nome),
+             cupons:(x,y)=>y.c.cupons-x.c.cupons||y.c.valor-x.c.valor,
+             pct:(x,y)=>y.c.pct-x.c.pct,
+             valor:(x,y)=>y.c.valor-x.c.valor};
+  lista.sort(ord[ordem]);
+
+  const cab=INDS.map(i=>`<th class="ind" title="${esc(i.nome)}"><div>${esc(i.nome)}</div></th>`).join('');
+  const corpo=lista.map(l=>{
+    const cels=INDS.map(i=>{
+      const r=l.regs.find(x=>x.industria_id===i.id);
+      const st=r?r.status:'';
+      const t=r?(r.status==='concluido'?i.nome+' — '+brl(r.valor):i.nome+' — aguardando valor'):i.nome+' — não visitada';
+      return `<td class="cel"><span class="bolinha ${st}" title="${esc(t)}" onclick="abrirDetalhe('${l.a.id}','${i.id}')"></span></td>`;
+    }).join('');
+    return `<tr>
+      <td class="loja" onclick="abrirDetalhe('${l.a.id}')" style="cursor:pointer">
+        <div class="n">${esc(l.a.nome)}</div>
+        <div class="c">${esc(l.a.cidade||'')}</div>
+      </td>
+      <td class="num">${l.c.conc}/${l.c.total}</td>
+      <td class="num"><b>${Math.round(l.c.pct)}%</b></td>
+      <td class="num">${brl(l.c.valor)}</td>
+      <td class="num"><b style="color:var(--verde)">${l.c.cupons}</b></td>
+      <td>${l.c.apto?'<span class="tag tag-verde">apto</span>':'<span class="tag tag-cinza">não apto</span>'}</td>
+      ${cels}
+    </tr>`;
+  }).join('');
+
+  $('painel-tabela').innerHTML=lista.length?
+    `<table class="matriz"><thead><tr>
+       <th class="loja">Loja</th><th class="num">Mesas</th><th class="num">Pos.</th>
+       <th class="num">Valor</th><th class="num">Cupons</th><th>Status</th>${cab}
+     </tr></thead><tbody>${corpo}</tbody></table>`
+    :'<div class="vazio">Nenhuma loja encontrada.</div>';
+}
+
+/* ── DETALHE DA LOJA ────────────────────────────────────── */
+function abrirDetalhe(assocId,focoInd){
+  const a=ASSOCS.find(x=>x.id===assocId);
+  const regs=REGS.filter(r=>r.associado_id===assocId);
+  const c=calcular(regs);
+  const itens=INDS.map(i=>{
+    const r=regs.find(x=>x.industria_id===i.id);
+    const st=r?r.status:'';
+    const vl=r?(r.status==='concluido'?brl(r.valor):'aguardando valor'):'não visitada';
+    return `<div class="det-item ${st}" onclick="editarRegistro('${assocId}','${i.id}')">
+      <img src="logos/${i.slug}.png" alt=""/>
+      <div class="info"><div class="nm">${esc(i.nome)}</div><div class="vl">${vl}</div></div>
+    </div>`;
+  }).join('');
+
+  $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
+    <div class="modal largo">
+      <div class="m-titulo">${esc(a.nome)}</div>
+      <div class="m-sub">${esc(a.cidade||'')}</div>
+      <div class="m-resumo" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+        <div><div style="font-size:11px;color:var(--cinza);font-weight:700">MESAS</div><b style="font-size:19px">${c.conc}/${c.total}</b></div>
+        <div><div style="font-size:11px;color:var(--cinza);font-weight:700">POSITIVAÇÃO</div><b style="font-size:19px">${Math.round(c.pct)}%</b></div>
+        <div><div style="font-size:11px;color:var(--cinza);font-weight:700">VALOR</div><b style="font-size:19px">${brlCurto(c.valor)}</b></div>
+        <div><div style="font-size:11px;color:var(--cinza);font-weight:700">CUPONS</div><b style="font-size:19px;color:var(--verde-esc)">${c.cupons}</b></div>
+      </div>
+      <div class="m-aviso">${c.apto?'Apto ao sorteio'+(c.rotulo?' — <b>'+esc(c.rotulo)+'</b>':'')+`. ${c.base} cupom(ns) por volume × ${c.mult} = <b>${c.cupons}</b>.`
+        :`Ainda não atingiu o piso de ${CFG.piso_positivacao}% — sem cupons até lá.`}</div>
+      <div class="det-grade">${itens}</div>
+      <div class="m-acoes"><button class="btn btn-ghost" onclick="fecharModal()">Fechar</button></div>
+    </div></div>`;
+  if(focoInd)editarRegistro(assocId,focoInd);
+}
+
+function editarRegistro(assocId,indId){
+  const a=ASSOCS.find(x=>x.id===assocId);
+  const ind=INDS.find(i=>i.id===indId);
+  const r=REGS.find(x=>x.associado_id===assocId&&x.industria_id===indId);
+  const val=r&&r.valor?Number(r.valor).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+  $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)abrirDetalhe('${assocId}')">
+    <div class="modal">
+      <img class="m-logo" src="logos/${ind.slug}.png" alt=""/>
+      <div class="m-titulo">${esc(ind.nome)}</div>
+      <div class="m-sub">${esc(a.nome)}</div>
+      <div class="m-campo">
+        <label>Valor total do pedido</label>
+        <input id="e-val" class="valor" inputmode="numeric" placeholder="0,00" value="${val}" oninput="mascaraMoeda(this)"/>
+      </div>
+      <div class="m-campo">
+        <label>Representante da indústria</label>
+        <input id="e-rep" value="${esc(r?.rep_nome||'')}"/>
+      </div>
+      <div class="m-campo">
+        <label>Telefone</label>
+        <input id="e-tel" value="${esc(telefoneFmt(r?.rep_telefone))}" oninput="this.value=telefoneFmt(this.value)"/>
+      </div>
+      <div class="m-erro" id="e-erro"></div>
+      <div class="m-acoes">
+        <button class="btn btn-ghost" onclick="abrirDetalhe('${assocId}')">Voltar</button>
+        <button class="btn btn-primary" onclick="salvarRegistro('${assocId}','${indId}',this)">Salvar</button>
+      </div>
+      ${r?`<div style="margin-top:10px"><button class="btn btn-perigo btn-sm" style="width:100%"
+            onclick="apagarRegistro('${assocId}','${indId}')">Apagar este registro</button></div>`:''}
+      ${r?`<div class="m-aviso">Lançado por ${esc(r.rep_nome||'—')} em ${new Date(r.concluido_em||r.iniciado_em).toLocaleString('pt-BR')}${r.editado_em?'<br>Editado pela retaguarda por '+esc(r.editado_por||'')+' em '+new Date(r.editado_em).toLocaleString('pt-BR'):''}</div>`:''}
+    </div></div>`;
+  setTimeout(()=>$('e-val').focus(),120);
+}
+
+async function salvarRegistro(assocId,indId,btn){
+  const v=lerMoeda($('e-val'));
+  if(!(v>0)){$('e-erro').textContent='Informe um valor maior que zero.';return;}
+  btn.disabled=true;btn.textContent='Salvando...';
+  const payload={status:'concluido',valor:v,rep_nome:$('e-rep').value.trim()||null,
+    rep_telefone:soDigitos($('e-tel').value)||null,editado_em:new Date().toISOString(),editado_por:EMAIL};
+  const existe=REGS.find(x=>x.associado_id===assocId&&x.industria_id===indId);
+  let error;
+  if(existe){
+    ({error}=await sb.from('rn_registros').update(payload).eq('id',existe.id));
+  }else{
+    ({error}=await sb.from('rn_registros').insert({associado_id:assocId,industria_id:indId,
+      concluido_em:new Date().toISOString(),...payload}));
+  }
+  if(error){btn.disabled=false;btn.textContent='Salvar';$('e-erro').textContent='Erro ao salvar.';return;}
+  const {data}=await sb.from('rn_registros').select('*');REGS=data||[];
+  renderPainel();abrirDetalhe(assocId);toast('Registro atualizado.');
+}
+
+async function apagarRegistro(assocId,indId){
+  if(!confirm('Apagar o registro desta mesa? A loja volta a aparecer como não visitada.'))return;
+  const r=REGS.find(x=>x.associado_id===assocId&&x.industria_id===indId);
+  if(r)await sb.from('rn_registros').delete().eq('id',r.id);
+  const {data}=await sb.from('rn_registros').select('*');REGS=data||[];
+  renderPainel();abrirDetalhe(assocId);toast('Registro apagado.');
+}
+
+/* ── ASSOCIADOS ─────────────────────────────────────────── */
+function linkDe(a){return BASE+'?t='+a.token;}
+
+function renderAssociados(){
+  const q=($('f-assoc').value||'').toLowerCase().trim();
+  const lista=ASSOCS.filter(a=>!q||a.nome.toLowerCase().includes(q)||(a.cidade||'').toLowerCase().includes(q));
+  $('assoc-tabela').innerHTML=lista.length?`<table>
+    <thead><tr><th>Associado</th><th>Cidade</th><th>Telefone</th><th>Situação</th><th>Link do cartão</th></tr></thead>
+    <tbody>${lista.map(a=>`<tr>
+      <td><b>${esc(a.nome)}</b></td>
+      <td>${esc(a.cidade||'—')}</td>
+      <td>${esc(telefoneFmt(a.telefone))||'—'}</td>
+      <td>${a.ativo?'<span class="tag tag-verde">ativo</span>':'<span class="tag tag-cinza">inativo</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="copiarLink('${a.id}')">Copiar</button>
+        ${a.telefone?`<button class="btn btn-ghost btn-sm" onclick="enviarWhats('${a.id}')">WhatsApp</button>`:''}
+        <button class="btn btn-ghost btn-sm" onclick="abrirAssociado('${a.id}')">Editar</button>
+      </td></tr>`).join('')}</tbody></table>`
+    :'<div class="vazio">Nenhum associado encontrado.</div>';
+}
+
+function copiarLink(id){
+  const a=ASSOCS.find(x=>x.id===id);
+  navigator.clipboard.writeText(linkDe(a)).then(()=>toast('Link copiado.'),()=>prompt('Copie o link:',linkDe(a)));
+}
+function enviarWhats(id){
+  const a=ASSOCS.find(x=>x.id===id);
+  const msg=`Olá, ${a.nome.split(' ')[0]}! Este é o seu *cartão digital de positivação* da ${CFG.evento_nome} da Coopefarma.\n\n`+
+    `Abra o link abaixo no celular e leve com você: a cada mesa que visitar, toque no logo da indústria e registre o pedido. `+
+    `O cartão mostra em tempo real sua positivação e quantos cupons você já tem para o sorteio das TVs.\n\n${linkDe(a)}`;
+  window.open('https://wa.me/55'+soDigitos(a.telefone)+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+function abrirAssociado(id){
+  const a=id?ASSOCS.find(x=>x.id===id):null;
+  $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
+    <div class="modal">
+      <div class="m-titulo">${a?'Editar associado':'Novo associado'}</div>
+      <div class="m-campo"><label>Nome do associado</label><input id="a-nome" value="${esc(a?.nome||'')}"/></div>
+      <div class="m-campo"><label>Cidade</label><input id="a-cidade" value="${esc(a?.cidade||'')}"/></div>
+      <div class="m-campo"><label>Telefone (com DDD)</label>
+        <input id="a-tel" inputmode="numeric" value="${esc(telefoneFmt(a?.telefone))}" oninput="this.value=telefoneFmt(this.value)"/></div>
+      ${a?`<div class="m-campo"><label>Situação</label>
+        <select id="a-ativo"><option value="1" ${a.ativo?'selected':''}>Ativo</option>
+        <option value="0" ${!a.ativo?'selected':''}>Inativo (link para de funcionar)</option></select></div>`:''}
+      ${a?`<div class="m-aviso" style="word-break:break-all">${esc(linkDe(a))}</div>`:''}
+      <div class="m-erro" id="a-erro"></div>
+      <div class="m-acoes">
+        <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarAssociado(${a?`'${a.id}'`:'null'},this)">Salvar</button>
+      </div>
+    </div></div>`;
+}
+
+async function salvarAssociado(id,btn){
+  const nome=$('a-nome').value.trim();
+  if(nome.length<3){$('a-erro').textContent='Informe o nome do associado.';return;}
+  btn.disabled=true;btn.textContent='Salvando...';
+  const dados={nome,cidade:$('a-cidade').value.trim()||null,telefone:soDigitos($('a-tel').value)||null};
+  let error;
+  if(id){
+    dados.ativo=$('a-ativo').value==='1';
+    ({error}=await sb.from('rn_associados').update(dados).eq('id',id));
+  }else{
+    dados.token=novoToken();
+    ({error}=await sb.from('rn_associados').insert(dados));
+  }
+  if(error){btn.disabled=false;btn.textContent='Salvar';$('a-erro').textContent='Erro ao salvar.';return;}
+  const {data}=await sb.from('rn_associados').select('*').order('nome');ASSOCS=data||[];
+  fecharModal();renderAssociados();toast('Associado salvo.');
+}
+
+function novoToken(){
+  const alfa='abcdefghjkmnpqrstuvwxyz23456789';
+  const arr=new Uint32Array(10);crypto.getRandomValues(arr);
+  return [...arr].map(n=>alfa[n%alfa.length]).join('');
+}
+
+/* ── SORTEIO ────────────────────────────────────────────── */
+function renderSorteio(){
+  const linhas=linhasCalculadas().filter(l=>l.a.ativo&&l.c.cupons>0)
+    .sort((x,y)=>y.c.cupons-x.c.cupons||x.a.nome.localeCompare(y.a.nome));
+  const totalCupons=linhas.reduce((s,l)=>s+l.c.cupons,0);
+  $('k-sorteio').innerHTML=`
+    <div class="kpi verde"><div class="rot">Lojas no sorteio</div><div class="num">${linhas.length}</div></div>
+    <div class="kpi verde"><div class="rot">Cupons no total</div><div class="num">${totalCupons}</div></div>
+    <div class="kpi"><div class="rot">Maior chance</div><div class="num">${linhas.length?Math.round(linhas[0].c.cupons/totalCupons*1000)/10:0}%</div><div class="pe">${linhas.length?esc(linhas[0].a.nome):'—'}</div></div>`;
+  $('sorteio-tabela').innerHTML=linhas.length?`<table>
+    <thead><tr><th>#</th><th>Loja</th><th>Cidade</th><th class="num">Positivação</th><th class="num">Valor</th>
+      <th class="num">Base</th><th class="num">Multiplicador</th><th class="num">Cupons</th><th class="num">Chance</th></tr></thead>
+    <tbody>${linhas.map((l,i)=>`<tr>
+      <td>${i+1}</td><td><b>${esc(l.a.nome)}</b></td><td>${esc(l.a.cidade||'')}</td>
+      <td class="num">${Math.round(l.c.pct)}%</td><td class="num">${brl(l.c.valor)}</td>
+      <td class="num">${l.c.base}</td>
+      <td class="num">${l.c.mult>1?`<span class="tag tag-verde">×${l.c.mult}</span>`:'×1'}</td>
+      <td class="num"><b style="color:var(--verde)">${l.c.cupons}</b></td>
+      <td class="num">${(l.c.cupons/totalCupons*100).toFixed(1)}%</td></tr>`).join('')}</tbody></table>`
+    :'<div class="vazio">Nenhuma loja atingiu o piso de positivação ainda.</div>';
+}
+
+function baixarLista(tipo){
+  const linhas=linhasCalculadas().filter(l=>l.a.ativo&&l.c.cupons>0)
+    .sort((x,y)=>y.c.cupons-x.c.cupons||x.a.nome.localeCompare(y.a.nome));
+  let txt,nome;
+  if(tipo==='cupons'){
+    const out=[];
+    linhas.forEach(l=>{const et=l.a.nome+(l.a.cidade?' - '+l.a.cidade:'');
+      for(let i=0;i<l.c.cupons;i++)out.push(et);});
+    txt=out.join('\n');nome='cupons-sorteio.txt';
+  }else{
+    txt='Loja;Cidade;Mesas;Positivacao;Valor;Base;Multiplicador;Cupons\n'+
+      linhas.map(l=>[l.a.nome,l.a.cidade||'',l.c.conc+'/'+l.c.total,Math.round(l.c.pct)+'%',
+        Number(l.c.valor).toFixed(2).replace('.',','),l.c.base,l.c.mult,l.c.cupons].join(';')).join('\n');
+    nome='resumo-positivacao.csv';
+  }
+  const blob=new Blob(['﻿'+txt],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=nome;a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+
+/* ── REGRAS ─────────────────────────────────────────────── */
+function renderRegras(){
+  const f=[...(CFG.faixas||[])].sort((a,b)=>a.pct-b.pct);
+  $('r-evento').value=CFG.evento_nome||'';
+  $('r-piso').value=CFG.piso_positivacao;
+  $('r-valor').value=CFG.valor_por_cupom;
+  [1,2,3].forEach(n=>{
+    $('r-f'+n+'p').value=f[n-1]?f[n-1].pct:'';
+    $('r-f'+n+'m').value=f[n-1]?f[n-1].mult:'';
+  });
+  simularRegras();
+  ['r-piso','r-valor','r-f1p','r-f1m','r-f2p','r-f2m','r-f3p','r-f3m'].forEach(id=>{
+    $(id).oninput=simularRegras;
+  });
+}
+
+function lerRegrasDoForm(){
+  const faixas=[];
+  [1,2,3].forEach(n=>{
+    const p=parseFloat($('r-f'+n+'p').value), m=parseFloat($('r-f'+n+'m').value);
+    if(!isNaN(p)&&!isNaN(m))faixas.push({pct:p,mult:m,rotulo:rotuloDe(m)});
+  });
+  faixas.sort((a,b)=>b.pct-a.pct);
+  return {evento_nome:$('r-evento').value.trim()||'Rodada de Negócios',
+    piso_positivacao:parseFloat($('r-piso').value)||0,
+    valor_por_cupom:parseFloat($('r-valor').value)||500, faixas};
+}
+function rotuloDe(m){
+  if(m>=2)return 'cupons em DOBRO';
+  const p=Math.round((m-1)*100);
+  return p>0?`+${p}% de cupons`:'cupons normais';
+}
+
+function simularRegras(){
+  const r=lerRegrasDoForm(), total=totalMesas();
+  const linhas=[{pct:r.piso_positivacao,txt:'piso — fica apto ao sorteio'}]
+    .concat([...r.faixas].sort((a,b)=>a.pct-b.pct).map(f=>({pct:f.pct,txt:f.rotulo})));
+  const det=linhas.filter(l=>l.pct>0).map(l=>
+    `• <b>${l.pct}%</b> = ${Math.ceil(total*l.pct/100)} das ${total} mesas → ${esc(l.txt)}`).join('<br>');
+  const ex=r.faixas.length?r.faixas[0]:{pct:0,mult:1};
+  const base=Math.floor(10000/r.valor_por_cupom);
+  $('r-simulacao').innerHTML=`Como fica na prática:<br>${det}<br><br>`+
+    `Exemplo: loja com R$ 10.000 em compras e ${ex.pct}% de positivação → `+
+    `${base} cupons por volume × ${ex.mult} = <b>${Math.floor(base*ex.mult)} cupons</b>.`;
+}
+
+async function salvarRegras(){
+  const r=lerRegrasDoForm();
+  const {error}=await sb.from('rn_config').update({...r,atualizado_em:new Date().toISOString()}).eq('id',1);
+  if(error){toast('Erro ao salvar as regras.');return;}
+  await carregarTudo();
+  toast('Regras salvas.');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BOOT
+   ═══════════════════════════════════════════════════════════ */
+(async function init(){
+  TOKEN=new URLSearchParams(location.search).get('t');
+  if(TOKEN){await initCartao();return;}
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){EMAIL=session.user.email;await entrarAdmin();}
+  else{$('tela-login').style.display='flex';}
+})();
+</script>
+</body>
+</html>
