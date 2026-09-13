@@ -171,17 +171,21 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 
 /* matriz */
 .matriz{border-collapse:separate;border-spacing:0;font-size:12px}
-.matriz th.ind{width:26px;min-width:26px;padding:0;height:120px;vertical-align:bottom;background:#f8fafc}
-.matriz th.ind div{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;font-weight:600;
-  color:var(--escuro);text-transform:none;letter-spacing:0;padding:6px 0 8px;white-space:nowrap}
+.matriz th.ind{width:26px;min-width:26px;padding:0;height:106px;vertical-align:bottom;background:#f8fafc}
+.matriz th.ind div{position:absolute;bottom:8px;left:13px;transform-origin:0 50%;transform:rotate(-45deg);
+  white-space:nowrap;font-size:11px;font-weight:600;line-height:1;
+  color:var(--escuro);text-transform:none;letter-spacing:0}
+/* folga à direita para o último rótulo inclinado não ser cortado */
+.matriz th.folga,.matriz td.folga{width:96px;min-width:96px;padding:0;border-bottom:1px solid #f1f5f9}
+.matriz th.folga{background:#f8fafc}
 .matriz td.cel{width:26px;min-width:26px;padding:3px;text-align:center}
 .matriz .bolinha{width:17px;height:17px;border-radius:5px;border:1.5px solid #dbe3ec;background:#fff;
   display:inline-block;cursor:pointer}
 .matriz .bolinha.iniciado{border-color:var(--amarelo);background:var(--amarelo)}
 .matriz .bolinha.concluido{border-color:var(--verde);background:var(--verde)}
-.matriz td.loja,.matriz th.loja{position:sticky;left:0;background:#fff;z-index:3;min-width:210px;
+.matriz td.loja,.matriz th.loja{position:sticky;left:0;background:#fff;z-index:20;min-width:210px;
   border-right:1px solid var(--borda)}
-.matriz th.loja{background:#f8fafc;z-index:4}
+.matriz th.loja{background:#f8fafc;z-index:70}
 .matriz td.loja .n{font-weight:600}
 .matriz td.loja .c{font-size:11px;color:var(--cinza)}
 .matriz tbody tr:hover td.loja{background:#fafcfe}
@@ -371,6 +375,18 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
         <div class="aviso-cfg" id="r-simulacao"></div>
         <div style="padding:0 16px 18px">
           <button class="btn btn-primary" onclick="salvarRegras()">Salvar regras</button>
+        </div>
+      </div>
+
+      <div class="painel" style="max-width:720px;margin-top:18px;border-color:#fecaca">
+        <div class="painel-cab" style="border-color:#fecaca">
+          <h3 style="color:var(--vermelho)">Testes e limpeza</h3>
+        </div>
+        <div style="padding:16px">
+          <p class="nota" id="m-contagem">—</p>
+          <button class="btn btn-perigo" style="margin-top:14px" onclick="abrirZerar()">
+            Zerar todos os lançamentos
+          </button>
         </div>
       </div>
     </div>
@@ -716,7 +732,10 @@ function renderPainel(){
              valor:(x,y)=>y.c.valor-x.c.valor};
   lista.sort(ord[ordem]);
 
-  const cab=INDS.map(i=>`<th class="ind" title="${esc(i.nome)}"><div>${esc(i.nome)}</div></th>`).join('');
+  // z-index decrescente: o rótulo inclinado de cada coluna passa por cima
+  // do fundo das colunas à direita, em vez de ser coberto por elas.
+  const cab=INDS.map((i,k)=>
+    `<th class="ind" style="z-index:${64-k}" title="${esc(i.nome)}"><div>${esc(i.nome)}</div></th>`).join('');
   const corpo=lista.map(l=>{
     const cels=INDS.map(i=>{
       const r=l.regs.find(x=>x.industria_id===i.id);
@@ -734,14 +753,14 @@ function renderPainel(){
       <td class="num">${brl(l.c.valor)}</td>
       <td class="num"><b style="color:var(--verde)">${l.c.cupons}</b></td>
       <td>${l.c.apto?'<span class="tag tag-verde">apto</span>':'<span class="tag tag-cinza">não apto</span>'}</td>
-      ${cels}
+      ${cels}<td class="folga"></td>
     </tr>`;
   }).join('');
 
   $('painel-tabela').innerHTML=lista.length?
     `<table class="matriz"><thead><tr>
        <th class="loja">Loja</th><th class="num">Mesas</th><th class="num">Pos.</th>
-       <th class="num">Valor</th><th class="num">Cupons</th><th>Status</th>${cab}
+       <th class="num">Valor</th><th class="num">Cupons</th><th>Status</th>${cab}<th class="folga"></th>
      </tr></thead><tbody>${corpo}</tbody></table>`
     :'<div class="vazio">Nenhuma loja encontrada.</div>';
 }
@@ -975,6 +994,53 @@ function renderRegras(){
   ['r-piso','r-valor','r-f1p','r-f1m','r-f2p','r-f2m','r-f3p','r-f3m'].forEach(id=>{
     $(id).oninput=simularRegras;
   });
+  renderManutencao();
+}
+
+/* ── testes e limpeza ───────────────────────────────────── */
+function renderManutencao(){
+  const n=REGS.length;
+  const conc=REGS.filter(r=>r.status==='concluido').length;
+  const lojas=new Set(REGS.map(r=>r.associado_id)).size;
+  const valor=REGS.reduce((s,r)=>s+Number(r.valor||0),0);
+  $('m-contagem').innerHTML = n
+    ? `Há <b>${n} mesa${n>1?'s':''} registrada${n>1?'s':''}</b> no banco — ${conc} com valor lançado, somando ${brl(valor)}, `+
+      `distribuídas em ${lojas} loja${lojas>1?'s':''}.<br><br>`+
+      `Zerar apaga todos esses lançamentos e devolve o mapa para 0/36 em todas as lojas. `+
+      `Os associados, os links, as indústrias e as regras <b>não são tocados</b> — é só a movimentação da rodada que sai. `+
+      `Use à vontade durante os testes; depois de zerar, não tem como voltar atrás.`
+    : 'Nenhum lançamento no banco — o mapa já está zerado.';
+}
+
+function abrirZerar(){
+  const n=REGS.length;
+  if(!n){toast('Não há lançamentos para apagar.');return;}
+  $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
+    <div class="modal">
+      <div class="m-titulo" style="color:var(--vermelho)">Zerar todos os lançamentos</div>
+      <div class="m-sub">Isso apaga <b>${n} registro${n>1?'s':''}</b> de mesa de todas as lojas.
+        Os associados, os links e as regras continuam como estão.</div>
+      <div class="m-campo">
+        <label>Para confirmar, digite ZERAR</label>
+        <input id="z-txt" autocomplete="off" placeholder="ZERAR" style="text-align:center;text-transform:uppercase;font-weight:700"
+               oninput="document.getElementById('z-ok').disabled=this.value.trim().toUpperCase()!=='ZERAR'"/>
+      </div>
+      <div class="m-erro" id="z-erro"></div>
+      <div class="m-acoes">
+        <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
+        <button class="btn btn-perigo" id="z-ok" disabled onclick="confirmarZerar(this)">Apagar tudo</button>
+      </div>
+    </div></div>`;
+  setTimeout(()=>$('z-txt').focus(),120);
+}
+
+async function confirmarZerar(btn){
+  btn.disabled=true;btn.textContent='Apagando...';
+  const {error}=await sb.from('rn_registros').delete().neq('status','__nenhum__');
+  if(error){btn.disabled=false;btn.textContent='Apagar tudo';$('z-erro').textContent='Erro ao apagar. Tente de novo.';return;}
+  fecharModal();
+  await carregarTudo();
+  toast('Lançamentos zerados. O mapa voltou ao início.');
 }
 
 function lerRegrasDoForm(){
