@@ -670,10 +670,12 @@ function renderCartao(){
 /* ── modal da mesa ───────────────────────────────────────── */
 function fecharModal(){$('modais').innerHTML='';}
 
-function abrirMesa(indId){
+function abrirMesa(indId,editar){
   const ind=INDS.find(i=>i.id===indId);
   const r=regDe(indId);
   let corpo;
+  const emEdicao=!!(editar&&r&&r.status==='concluido');
+  const valIni=emEdicao&&r.valor?Number(r.valor).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
 
   if(!r){
     corpo=`
@@ -683,29 +685,32 @@ function abrirMesa(indId){
         <button class="btn btn-ghost" onclick="fecharModal()">Voltar</button>
         <button class="btn btn-primary" onclick="iniciarMesa('${indId}',this)">Iniciar pedido</button>
       </div>`;
-  }else if(r.status==='iniciado'){
+  }else if(r.status==='iniciado'||emEdicao){
     corpo=`
       <div class="m-titulo">${esc(ind.nome)}</div>
-      <div class="m-sub">Preenchimento pelo <b>representante da indústria</b>.</div>
+      <div class="m-sub">${emEdicao?'Corrija o que for preciso e salve.':'Preenchimento pelo <b>representante da indústria</b>.'}</div>
       <div class="m-campo">
         <label>Nome completo do representante</label>
-        <input id="f-rep" placeholder="Como está no crachá" autocomplete="off"/>
+        <input id="f-rep" placeholder="Como está no crachá" autocomplete="off" value="${emEdicao?esc(r.rep_nome||''):''}"/>
       </div>
       <div class="m-campo">
         <label>Telefone do representante</label>
         <input id="f-tel" inputmode="numeric" placeholder="(84) 99999-9999" autocomplete="off"
-               oninput="this.value=telefoneFmt(this.value)"/>
+               oninput="this.value=telefoneFmt(this.value)" value="${emEdicao?esc(telefoneFmt(r.rep_telefone)):''}"/>
       </div>
       <div class="m-campo">
         <label>Valor total do pedido</label>
-        <input id="f-val" class="valor" inputmode="numeric" placeholder="0,00" oninput="mascaraMoeda(this)"/>
+        <input id="f-val" class="valor" inputmode="numeric" placeholder="0,00" oninput="mascaraMoeda(this)" value="${valIni}"/>
       </div>
       <div class="m-erro" id="f-erro"></div>
       <div class="m-acoes">
-        <button class="btn btn-ghost" onclick="fecharModal()">Agora não</button>
-        <button class="btn btn-primary" onclick="concluirMesa('${indId}',this)">Concluir registro</button>
+        ${emEdicao
+          ?`<button class="btn btn-ghost" onclick="abrirMesa('${indId}')">Cancelar</button>
+            <button class="btn btn-primary" onclick="concluirMesa('${indId}',this,true)">Salvar alteração</button>`
+          :`<button class="btn btn-ghost" onclick="fecharModal()">Agora não</button>
+            <button class="btn btn-primary" onclick="concluirMesa('${indId}',this)">Concluir registro</button>`}
       </div>
-      <div class="m-aviso">Depois de concluído, o valor só pode ser alterado pela retaguarda da Coopefarma.</div>`;
+      ${emEdicao?'<div class="m-aviso">A alteração fica registrada e aparece para a retaguarda da Coopefarma.</div>':''}`;
   }else{
     corpo=`
       <div class="m-titulo">${esc(ind.nome)}</div>
@@ -715,8 +720,11 @@ function abrirMesa(indId){
         <div class="lin"><span>Telefone</span><b>${esc(telefoneFmt(r.rep_telefone))}</b></div>
         <div class="lin"><span>Registrado em</span><b>${new Date(r.concluido_em||r.iniciado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</b></div>
       </div>
-      <div class="m-aviso">Valor errado ou compra complementar? Procure a equipe da Coopefarma — a correção é feita na retaguarda.</div>
-      <div class="m-acoes"><button class="btn btn-primary" onclick="fecharModal()">Fechar</button></div>`;
+      ${r.editado_em?`<div class="m-aviso">Alterado em ${new Date(r.editado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>`:''}
+      <div class="m-acoes">
+        <button class="btn btn-ghost" onclick="abrirMesa('${indId}',true)">Editar</button>
+        <button class="btn btn-primary" onclick="fecharModal()">Fechar</button>
+      </div>`;
   }
 
   $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
@@ -738,7 +746,7 @@ async function iniciarMesa(indId,btn){
   toast('Mesa marcada. Volte quando tiver o valor.');
 }
 
-async function concluirMesa(indId,btn){
+async function concluirMesa(indId,btn,edicao){
   const rep=$('f-rep').value.trim();
   const tel=$('f-tel').value.trim();
   const val=lerMoeda($('f-val'));
@@ -748,14 +756,16 @@ async function concluirMesa(indId,btn){
   if(!(val>0)){err.textContent='Informe o valor total do pedido.';return;}
   err.textContent='';
   btn.disabled=true;btn.textContent='Salvando...';
-  const {error}=await sb.from('rn_registros').update({
-    status:'concluido',valor:val,rep_nome:rep,rep_telefone:soDigitos(tel),concluido_em:new Date().toISOString()
-  }).eq('associado_id',EU.id).eq('industria_id',indId);
-  if(error){btn.disabled=false;btn.textContent='Concluir registro';err.textContent='Erro ao salvar. Tente de novo.';return;}
+  // edição pelo associado: mantém a data original do lançamento e marca quem alterou
+  const payload=edicao
+    ?{valor:val,rep_nome:rep,rep_telefone:soDigitos(tel),editado_em:new Date().toISOString(),editado_por:'associado'}
+    :{status:'concluido',valor:val,rep_nome:rep,rep_telefone:soDigitos(tel),concluido_em:new Date().toISOString()};
+  const {error}=await sb.from('rn_registros').update(payload).eq('associado_id',EU.id).eq('industria_id',indId);
+  if(error){btn.disabled=false;btn.textContent=edicao?'Salvar alteração':'Concluir registro';err.textContent='Erro ao salvar. Tente de novo.';return;}
   await atualizarCartao();
   fecharModal();
   const c=calcular(REGS,EU.valor_compra_coletiva);
-  toast('Registrado! '+c.conc+' mesas · '+c.cupons+' cupons');
+  toast((edicao?'Alterado! ':'Registrado! ')+c.conc+' mesas · '+c.cupons+' cupons');
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -960,7 +970,7 @@ function editarRegistro(assocId,indId){
       </div>
       ${r?`<div style="margin-top:10px"><button class="btn btn-perigo btn-sm" style="width:100%"
             onclick="apagarRegistro('${assocId}','${indId}')">Apagar este registro</button></div>`:''}
-      ${r?`<div class="m-aviso">Lançado por ${esc(r.rep_nome||'—')} em ${new Date(r.concluido_em||r.iniciado_em).toLocaleString('pt-BR')}${r.editado_em?'<br>Editado pela retaguarda por '+esc(r.editado_por||'')+' em '+new Date(r.editado_em).toLocaleString('pt-BR'):''}</div>`:''}
+      ${r?`<div class="m-aviso">Lançado por ${esc(r.rep_nome||'—')} em ${new Date(r.concluido_em||r.iniciado_em).toLocaleString('pt-BR')}${r.editado_em?'<br>'+(r.editado_por==='associado'?'Editado pelo associado no cartão':'Editado pela retaguarda por '+esc(r.editado_por||''))+' em '+new Date(r.editado_em).toLocaleString('pt-BR'):''}</div>`:''}
     </div></div>`;
   setTimeout(()=>$('e-val').focus(),120);
 }
