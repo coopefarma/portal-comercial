@@ -497,6 +497,11 @@ const logoDe=i=>i.logo||('logos/'+i.slug+'.png');
 
 function totalMesas(){return INDS.filter(i=>i.ativa&&i.conta_positivacao).length;}
 
+/* mesas exigidas para um percentual — ARREDONDA PARA BAIXO.
+   Ex.: 39 mesas × 50% = 19,5 → 19. A régua de apto e das faixas
+   é sempre em mesas, nunca no percentual quebrado. */
+const mesasPara=(total,pct)=>Math.floor(total*Number(pct)/100);
+
 /* valorCC = Compra Coletiva. Soma ao volume comprado (gera cupom),
    mas NÃO conta como mesa — a positivação continua sendo mesas ÷ 36. */
 function calcular(regsDaLoja,valorCC){
@@ -515,10 +520,11 @@ function calcular(regsDaLoja,valorCC){
   const coletiva=Number(valorCC||0);
   const valor=valorMesas+coletiva;
   const pct=total?(conc.length/total)*100:0;
-  const apto=pct>=Number(CFG.piso_positivacao);
+  const nc=conc.length;
+  const apto=total>0&&nc>=mesasPara(total,CFG.piso_positivacao);
   let mult=1,rotulo=null;
   const faixas=[...(CFG.faixas||[])].sort((a,b)=>b.pct-a.pct);
-  for(const f of faixas){if(pct>=f.pct){mult=Number(f.mult);rotulo=f.rotulo;break;}}
+  for(const f of faixas){if(total>0&&nc>=mesasPara(total,f.pct)){mult=Number(f.mult);rotulo=f.rotulo;break;}}
   const base=Math.floor(valor/Number(CFG.valor_por_cupom||500));
   const cupons=apto?Math.floor(base*mult):0;
   return {total,conc:conc.length,ini:ini.length,valorMesas,coletiva,valor,
@@ -532,7 +538,7 @@ function proximaMeta(concluidas){
     .concat([...(CFG.faixas||[])].sort((a,b)=>a.pct-b.pct).map(f=>({pct:Number(f.pct),txt:f.rotulo})));
   for(const a of alvos){
     if(a.pct<=0)continue;
-    const need=Math.ceil(total*a.pct/100);
+    const need=mesasPara(total,a.pct);
     if(concluidas<need)return {faltam:need-concluidas,txt:a.txt,pct:a.pct};
   }
   return null;
@@ -620,7 +626,7 @@ function renderCartao(){
   marcas.forEach(p=>{
     if(p<=0||p>=100)return;
     const d=document.createElement('div');
-    d.className='c-prog-marca'+(c.pct>=p?' batida':'');
+    d.className='c-prog-marca'+(c.total&&c.conc>=mesasPara(c.total,p)?' batida':'');
     d.style.left=p+'%';prog.appendChild(d);
   });
 
@@ -1116,14 +1122,14 @@ const slugify=s=>(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'')
 
 function renderIndustrias(){
   const contam=INDS_ADMIN.filter(i=>i.ativa&&i.conta_positivacao).length;
-  const piso=Math.ceil(contam*Number(CFG.piso_positivacao)/100);
+  const piso=mesasPara(contam,CFG.piso_positivacao);
   const faixas=[...(CFG.faixas||[])].sort((a,b)=>a.pct-b.pct);
   $('k-industrias').innerHTML=`
     <div class="kpi verde"><div class="rot">Mesas que contam</div><div class="num">${contam}</div><div class="pe">denominador da positivação</div></div>
     <div class="kpi"><div class="rot">Cadastradas</div><div class="num">${INDS_ADMIN.length}</div><div class="pe">${INDS_ADMIN.filter(i=>!i.ativa).length} inativa(s)</div></div>
     <div class="kpi"><div class="rot">Fica apto com</div><div class="num">${piso}</div><div class="pe">mesas (${CFG.piso_positivacao}%)</div></div>
     `+faixas.map(f=>`<div class="kpi"><div class="rot">${esc(f.rotulo||f.pct+'%')}</div>
-       <div class="num">${Math.ceil(contam*Number(f.pct)/100)}</div><div class="pe">mesas (${f.pct}%)</div></div>`).join('');
+       <div class="num">${mesasPara(contam,f.pct)}</div><div class="pe">mesas (${f.pct}%)</div></div>`).join('');
 
   $('ind-tabela').innerHTML=INDS_ADMIN.length?`<table>
     <thead><tr><th>Logo</th><th>Indústria</th><th class="num">Ordem</th><th>Conta positivação</th>
@@ -1211,8 +1217,8 @@ function abrirIndustria(id){
         <button class="btn btn-primary" onclick="salvarIndustria(${i?`'${i.id}'`:'null'},this)">Salvar</button>
       </div>
       ${!i?`<div class="m-aviso">Incluir esta indústria leva o total de mesas de <b>${contamHoje}</b> para <b>${depois}</b>.
-        A positivação de quem já está em campo é recalculada: quem tinha ${Math.ceil(contamHoje/2)} de ${contamHoje}
-        (${Math.round(Math.ceil(contamHoje/2)/contamHoje*100)}%) passa a ter ${Math.round(Math.ceil(contamHoje/2)/depois*100)}%.
+        A positivação de quem já está em campo é recalculada: quem tinha ${Math.floor(contamHoje/2)} de ${contamHoje}
+        (${Math.round(Math.floor(contamHoje/2)/contamHoje*100)}%) passa a ter ${Math.round(Math.floor(contamHoje/2)/depois*100)}%.
         Se a rodada já começou, avise os associados.</div>`:''}
     </div></div>`;
   setTimeout(()=>$('i-nome').focus(),120);
@@ -1441,7 +1447,7 @@ function simularRegras(){
   const linhas=[{pct:r.piso_positivacao,txt:'piso — fica apto ao sorteio'}]
     .concat([...r.faixas].sort((a,b)=>a.pct-b.pct).map(f=>({pct:f.pct,txt:f.rotulo})));
   const det=linhas.filter(l=>l.pct>0).map(l=>
-    `• <b>${l.pct}%</b> = ${Math.ceil(total*l.pct/100)} das ${total} mesas → ${esc(l.txt)}`).join('<br>');
+    `• <b>${l.pct}%</b> = ${mesasPara(total,l.pct)} das ${total} mesas → ${esc(l.txt)}`).join('<br>');
   const ex=r.faixas.length?r.faixas[0]:{pct:0,mult:1};
   const base=Math.floor(10000/r.valor_por_cupom);
   $('r-simulacao').innerHTML=`Como fica na prática:<br>${det}<br><br>`+
