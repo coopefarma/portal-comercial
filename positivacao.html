@@ -198,6 +198,12 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   border-right:1px solid var(--borda)}
 .matriz th.loja{background:#f8fafc;z-index:70}
 .matriz td.loja .n{font-weight:600}
+/* cabeçalhos clicáveis para ordenar */
+.matriz th.ord{cursor:pointer;user-select:none;white-space:nowrap}
+.matriz th.ord:hover{color:var(--verde)}
+.matriz th.ord .seta{display:inline-block;width:10px;margin-left:3px;font-size:10px;opacity:.35}
+.matriz th.ord.ativo{color:var(--verde)}
+.matriz th.ord.ativo .seta{opacity:1}
 .matriz td.loja .c{font-size:11px;color:var(--cinza)}
 .matriz tbody tr:hover td.loja{background:#fafcfe}
 
@@ -301,11 +307,13 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
           <h3>Mapa de positivação</h3>
           <div class="dir">
             <input class="busca" id="f-painel" placeholder="Buscar loja ou cidade..." oninput="renderPainel()"/>
-            <select class="busca" id="f-ordem" onchange="renderPainel()" style="min-width:auto">
+            <select class="busca" id="f-ordem" onchange="ordenarPor(this.value,true)" style="min-width:auto">
               <option value="nome">Ordem alfabética</option>
-              <option value="cupons">Mais cupons</option>
               <option value="pct">Maior positivação</option>
+              <option value="mesas">Mais mesas</option>
+              <option value="coletiva">Maior coletiva</option>
               <option value="valor">Maior valor</option>
+              <option value="cupons">Mais cupons</option>
             </select>
           </div>
         </div>
@@ -792,6 +800,15 @@ function linhasCalculadas(){
 }
 
 /* ── PAINEL ─────────────────────────────────────────────── */
+/* Ordenação do mapa: clicar no cabeçalho ordena do maior para o menor;
+   clicar de novo na mesma coluna inverte (menor para o maior).
+   Loja começa em A→Z. O seletor ao lado da busca fica sincronizado. */
+let ORDEM_PAINEL={campo:'nome',dir:1};
+function ordenarPor(campo,doSeletor){
+  if(!doSeletor&&ORDEM_PAINEL.campo===campo) ORDEM_PAINEL.dir*=-1;
+  else ORDEM_PAINEL={campo,dir:campo==='nome'?1:-1};
+  renderPainel();
+}
 function renderPainel(){
   const linhas=linhasCalculadas();
   const ativos=linhas.filter(l=>l.a.ativo);
@@ -813,13 +830,22 @@ function renderPainel(){
     <div class="kpi verde"><div class="rot">Cupons gerados</div><div class="num">${totalCupons}</div><div class="pe">para o sorteio das 20 TVs</div></div>`;
 
   const q=($('f-painel').value||'').toLowerCase().trim();
-  const ordem=$('f-ordem').value;
   let lista=ativos.filter(l=>!q||l.a.nome.toLowerCase().includes(q)||(l.a.cidade||'').toLowerCase().includes(q));
-  const ord={nome:(x,y)=>x.a.nome.localeCompare(y.a.nome),
-             cupons:(x,y)=>y.c.cupons-x.c.cupons||y.c.valor-x.c.valor,
-             pct:(x,y)=>y.c.pct-x.c.pct,
-             valor:(x,y)=>y.c.valor-x.c.valor};
-  lista.sort(ord[ordem]);
+  const {campo,dir}=ORDEM_PAINEL;
+  const chave={pct:l=>l.c.pct, mesas:l=>l.c.conc, coletiva:l=>l.c.coletiva,
+               valor:l=>l.c.valor, cupons:l=>l.c.cupons};
+  const porNome=(x,y)=>x.a.nome.localeCompare(y.a.nome,'pt-BR');
+  lista.sort(campo==='nome'
+    ? (x,y)=>dir*porNome(x,y)
+    : (x,y)=>dir*(chave[campo](x)-chave[campo](y))||dir*(x.c.valor-y.c.valor)||porNome(x,y));
+  const sel=$('f-ordem'); if(sel) sel.value=campo;
+  const th=(c,rot,cls)=>{
+    const at=campo===c;
+    const seta=at?(dir<0?'▼':'▲'):'↕';
+    const dica=at?(dir<0?'Maior → menor (clique para inverter)':'Menor → maior (clique para inverter)')
+                 :(c==='nome'?'Ordenar A→Z':'Ordenar do maior para o menor');
+    return `<th class="${cls} ord${at?' ativo':''}" onclick="ordenarPor('${c}')" title="${dica}">${rot}<span class="seta">${seta}</span></th>`;
+  };
 
   // z-index decrescente: o rótulo inclinado de cada coluna passa por cima
   // do fundo das colunas à direita, em vez de ser coberto por elas.
@@ -849,8 +875,8 @@ function renderPainel(){
 
   $('painel-tabela').innerHTML=lista.length?
     `<table class="matriz"><thead><tr>
-       <th class="loja">Loja</th><th class="num">Mesas</th><th class="num">Pos.</th>
-       <th class="num">Coletiva</th><th class="num">Valor total</th><th class="num">Cupons</th><th>Status</th>${cab}<th class="folga"></th>
+       ${th('nome','Loja','loja')}${th('mesas','Mesas','num')}${th('pct','Pos.','num')}
+       ${th('coletiva','Coletiva','num')}${th('valor','Valor total','num')}${th('cupons','Cupons','num')}<th>Status</th>${cab}<th class="folga"></th>
      </tr></thead><tbody>${corpo}</tbody></table>`
     :'<div class="vazio">Nenhuma loja encontrada.</div>';
 }
