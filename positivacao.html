@@ -169,6 +169,11 @@ button,input,select,textarea{font-family:inherit;font-size:inherit}
 .busca:focus{border-color:var(--verde)}
 
 .rolagem{overflow-x:auto}
+/* Mapa de positivação: a tabela rola dentro da própria caixa (vertical e horizontal),
+   assim o cabeçalho (Loja, Mesas, Pos., indústrias...) fica congelado no topo
+   e a coluna Loja fica congelada à esquerda. */
+.rolagem-matriz{overflow:auto;max-height:calc(100vh - 150px)}
+.rolagem-matriz .matriz thead th{position:sticky;top:0}
 table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{padding:9px 11px;text-align:left;border-bottom:1px solid #f1f5f9;white-space:nowrap}
 th{background:#f8fafc;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--cinza);
@@ -317,7 +322,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
             </select>
           </div>
         </div>
-        <div class="rolagem" id="painel-tabela"></div>
+        <div class="rolagem rolagem-matriz" id="painel-tabela"></div>
       </div>
       <p class="nota" style="margin-top:12px">Clique no nome da loja para abrir o detalhe e corrigir valores. Clique numa bolinha para ir direto naquela mesa.</p>
     </div>
