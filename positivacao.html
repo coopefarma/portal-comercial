@@ -372,6 +372,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
         <div class="painel-cab">
           <h3>Lojas aptas e cupons</h3>
           <div class="dir">
+            <span style="font-size:12.5px;color:#6b7280;margin-right:2px">Ranquear por:</span>
+            <button class="btn btn-primary btn-sm" id="ord-cupons" onclick="ordenarSorteio('cupons')">Nº de cupons</button>
+            <button class="btn btn-ghost btn-sm" id="ord-mesas" onclick="ordenarSorteio('mesas')" style="margin-right:14px">Nº de mesas</button>
             <button class="btn btn-ghost btn-sm" onclick="baixarLista('resumo')">Baixar resumo (CSV)</button>
             <button class="btn btn-primary btn-sm" onclick="baixarLista('cupons')">Baixar cupons (1 por linha)</button>
           </div>
@@ -1358,24 +1361,37 @@ async function ordenarIndustrias(){
 }
 
 /* ── SORTEIO ────────────────────────────────────────────── */
+let ORDEM_SORTEIO='cupons';
+function ordenarSorteio(tipo){
+  ORDEM_SORTEIO=tipo;
+  $('ord-cupons').className='btn btn-sm '+(tipo==='cupons'?'btn-primary':'btn-ghost');
+  $('ord-mesas').className='btn btn-sm '+(tipo==='mesas'?'btn-primary':'btn-ghost');
+  renderSorteio();
+}
 function renderSorteio(){
+  const porMesas=ORDEM_SORTEIO==='mesas';
   const linhas=linhasCalculadas().filter(l=>l.a.ativo&&l.c.cupons>0)
-    .sort((x,y)=>y.c.cupons-x.c.cupons||x.a.nome.localeCompare(y.a.nome));
+    .sort(porMesas
+      ?(x,y)=>y.c.conc-x.c.conc||y.c.cupons-x.c.cupons||x.a.nome.localeCompare(y.a.nome)
+      :(x,y)=>y.c.cupons-x.c.cupons||y.c.conc-x.c.conc||x.a.nome.localeCompare(y.a.nome));
   const totalCupons=linhas.reduce((s,l)=>s+l.c.cupons,0);
+  const lider=linhas.reduce((m,l)=>!m||l.c.cupons>m.c.cupons?l:m,null);
+  const destM=porMesas?' style="background:#ecfdf5"':'', destC=porMesas?'':' style="background:#ecfdf5"';
   $('k-sorteio').innerHTML=`
     <div class="kpi verde"><div class="rot">Lojas no sorteio</div><div class="num">${linhas.length}</div></div>
     <div class="kpi verde"><div class="rot">Cupons no total</div><div class="num">${totalCupons}</div></div>
-    <div class="kpi"><div class="rot">Maior chance</div><div class="num">${linhas.length?Math.round(linhas[0].c.cupons/totalCupons*1000)/10:0}%</div><div class="pe">${linhas.length?esc(linhas[0].a.nome):'—'}</div></div>`;
+    <div class="kpi"><div class="rot">Maior chance</div><div class="num">${lider?Math.round(lider.c.cupons/totalCupons*1000)/10:0}%</div><div class="pe">${lider?esc(lider.a.nome):'—'}</div></div>`;
   $('sorteio-tabela').innerHTML=linhas.length?`<table>
-    <thead><tr><th>#</th><th>Loja</th><th>Cidade</th><th class="num">Positivação</th><th class="num">Mesas R$</th>
-      <th class="num">Coletiva</th><th class="num">Valor total</th><th class="num">Base</th><th class="num">Multiplicador</th><th class="num">Cupons</th><th class="num">Chance</th></tr></thead>
+    <thead><tr><th>#</th><th>Loja</th><th>Cidade</th><th class="num"${destM}>Mesas</th><th class="num">Positivação</th><th class="num">Mesas R$</th>
+      <th class="num">Coletiva</th><th class="num">Valor total</th><th class="num">Base</th><th class="num">Multiplicador</th><th class="num"${destC}>Cupons</th><th class="num">Chance</th></tr></thead>
     <tbody>${linhas.map((l,i)=>`<tr>
       <td>${i+1}</td><td><b>${esc(l.a.nome)}</b></td><td>${esc(l.a.cidade||'')}</td>
+      <td class="num"${destM}><b>${l.c.conc}</b><span style="color:#9ca3af">/${l.c.total}</span></td>
       <td class="num">${Math.round(l.c.pct)}%</td><td class="num">${brl(l.c.valorMesas)}</td>
       <td class="num">${l.c.coletiva>0?brl(l.c.coletiva):'—'}</td><td class="num"><b>${brl(l.c.valor)}</b></td>
       <td class="num">${l.c.base}</td>
       <td class="num">${l.c.mult>1?`<span class="tag tag-verde">×${l.c.mult}</span>`:'×1'}</td>
-      <td class="num"><b style="color:var(--verde)">${l.c.cupons}</b></td>
+      <td class="num"${destC}><b style="color:var(--verde)">${l.c.cupons}</b></td>
       <td class="num">${(l.c.cupons/totalCupons*100).toFixed(1)}%</td></tr>`).join('')}</tbody></table>`
     :'<div class="vazio">Nenhuma loja atingiu o piso de positivação ainda.</div>';
 }
