@@ -209,6 +209,12 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .matriz th.ord .seta{display:inline-block;width:10px;margin-left:3px;font-size:10px;opacity:.35}
 .matriz th.ord.ativo{color:var(--verde)}
 .matriz th.ord.ativo .seta{opacity:1}
+.tab-ind th.ord{cursor:pointer;user-select:none;white-space:nowrap}
+.tab-ind th.ord:hover{color:var(--verde)}
+.tab-ind th.ord .seta{display:inline-block;width:10px;margin-left:3px;font-size:10px;opacity:.35}
+.tab-ind th.ord.ativo{color:var(--verde)}
+.tab-ind th.ord.ativo .seta{opacity:1}
+.tab-ind tfoot td{font-weight:700;border-top:2px solid var(--borda,#e5e7eb)}
 .matriz td.loja .c{font-size:11px;color:var(--cinza)}
 .matriz tbody tr:hover td.loja{background:#fafcfe}
 
@@ -1130,6 +1136,16 @@ function novoToken(){
 const slugify=s=>(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'')
   .toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,24);
 
+/* Ordenação da tabela de indústrias: começa pela ordem da grade (a mesma
+   do cartão do associado). Clicar num cabeçalho numérico ordena do maior
+   para o menor; clicar de novo inverte. Só muda a exibição — a ordem
+   gravada no banco continua sendo a do botão "Reordenar A–Z" / Editar. */
+let ORDEM_IND={campo:'ordem',dir:1};
+function ordenarInd(campo){
+  if(ORDEM_IND.campo===campo) ORDEM_IND.dir*=-1;
+  else ORDEM_IND={campo,dir:(campo==='nome'||campo==='ordem')?1:-1};
+  renderIndustrias();
+}
 function renderIndustrias(){
   const contam=INDS_ADMIN.filter(i=>i.ativa&&i.conta_positivacao).length;
   const piso=mesasPara(contam,CFG.piso_positivacao);
@@ -1141,11 +1157,33 @@ function renderIndustrias(){
     `+faixas.map(f=>`<div class="kpi"><div class="rot">${esc(f.rotulo||f.pct+'%')}</div>
        <div class="num">${mesasPara(contam,f.pct)}</div><div class="pe">mesas (${f.pct}%)</div></div>`).join('');
 
-  $('ind-tabela').innerHTML=INDS_ADMIN.length?`<table>
-    <thead><tr><th>Logo</th><th>Indústria</th><th class="num">Ordem</th><th>Conta positivação</th>
-      <th>Situação</th><th class="num">Lançamentos</th><th>Ações</th></tr></thead>
-    <tbody>${INDS_ADMIN.map(i=>{
-      const usos=REGS.filter(r=>r.industria_id===i.id).length;
+  // Total comprado = soma dos valores das mesas CONCLUÍDAS, só de lojas
+  // ativas (mesmo critério do "Volume negociado" do Painel). Compra
+  // Coletiva não entra: ela não pertence a nenhuma indústria da grade.
+  const lojasAtivas=new Set(ASSOCS.filter(a=>a.ativo).map(a=>a.id));
+  const linhas=INDS_ADMIN.map(i=>{
+    const regs=REGS.filter(r=>r.industria_id===i.id);
+    const conc=regs.filter(r=>r.status==='concluido'&&lojasAtivas.has(r.associado_id));
+    return {i,usos:regs.length,nconc:conc.length,
+            total:conc.reduce((s,r)=>s+Number(r.valor||0),0)};
+  });
+  const {campo,dir}=ORDEM_IND;
+  const chave={ordem:l=>Number(l.i.ordem||0),usos:l=>l.usos,total:l=>l.total};
+  const porNome=(x,y)=>x.i.nome.localeCompare(y.i.nome,'pt-BR');
+  linhas.sort(campo==='nome'?(x,y)=>dir*porNome(x,y)
+    :(x,y)=>dir*(chave[campo](x)-chave[campo](y))||porNome(x,y));
+  const th=(c,rot,cls='')=>{
+    const at=campo===c, seta=at?(dir<0?'▼':'▲'):'↕';
+    const dica=at?'Clique para inverter':(c==='nome'?'Ordenar A→Z':c==='ordem'?'Ordem da grade':'Ordenar do maior para o menor');
+    return `<th class="${cls} ord${at?' ativo':''}" onclick="ordenarInd('${c}')" title="${dica}">${rot}<span class="seta">${seta}</span></th>`;
+  };
+  const somaTotal=linhas.filter(l=>l.i.ativa).reduce((s,l)=>s+l.total,0);
+  const somaUsos=linhas.reduce((s,l)=>s+l.usos,0);
+
+  $('ind-tabela').innerHTML=INDS_ADMIN.length?`<table class="tab-ind">
+    <thead><tr><th>Logo</th>${th('nome','Indústria')}${th('ordem','Ordem','num')}<th>Conta positivação</th>
+      <th>Situação</th>${th('usos','Lançamentos','num')}${th('total','Total comprado','num')}<th>Ações</th></tr></thead>
+    <tbody>${linhas.map(({i,usos,nconc,total})=>{
       return `<tr style="${i.ativa?'':'opacity:.5'}">
         <td><img src="${logoDe(i)}" alt="" style="height:26px;width:70px;object-fit:contain"/></td>
         <td><b>${esc(i.nome)}</b></td>
@@ -1153,11 +1191,14 @@ function renderIndustrias(){
         <td>${i.conta_positivacao?'<span class="tag tag-verde">sim</span>':'<span class="tag tag-cinza">não</span>'}</td>
         <td>${i.ativa?'<span class="tag tag-verde">ativa</span>':'<span class="tag tag-cinza">inativa</span>'}</td>
         <td class="num">${usos||'—'}</td>
+        <td class="num" title="${nconc} mesa(s) concluída(s)">${total>0?'<b>'+brl(total)+'</b>':'—'}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-ghost btn-sm" onclick="abrirIndustria('${i.id}')">Editar</button>
           <button class="btn btn-ghost btn-sm" onclick="alternarIndustria('${i.id}')">${i.ativa?'Desativar':'Ativar'}</button>
           <button class="btn btn-perigo btn-sm" onclick="excluirIndustria('${i.id}')">Excluir</button>
-        </td></tr>`;}).join('')}</tbody></table>`
+        </td></tr>`;}).join('')}</tbody>
+    <tfoot><tr><td></td><td>Total das indústrias ativas</td><td></td><td></td><td></td>
+      <td class="num">${somaUsos}</td><td class="num">${brl(somaTotal)}</td><td></td></tr></tfoot></table>`
     :'<div class="vazio">Nenhuma indústria cadastrada.</div>';
 }
 
