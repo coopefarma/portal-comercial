@@ -440,7 +440,7 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
             <div class="detalhe-meta">
               <span id="d-badge"></span>
               <span>📦 <span id="d-nprod">0</span> produtos</span>
-              <span>📋 <span id="d-nped">0</span> pedido(s)</span>
+              <span>📝 <span id="d-nped">0</span> formulário(s)</span><span>📋 <span id="d-npedforn">0</span> pedido(s) por fornecedor</span>
               <span>📅 <span id="d-data">—</span></span>
             </div>
           </div>
@@ -657,7 +657,7 @@ async function carregarCampanhas(){
     const dt=new Date(c.created_at).toLocaleDateString('pt-BR');
     return `<div class="camp-card" onclick="abrirDetalhe('${c.id}')">
       <div class="camp-card-header"><div class="camp-card-nome">${esc(c.nome)}</div><span class="badge ${bCls}">${bTxt}</span></div>
-      <div class="camp-card-stats"><span>📦 ${np} produto(s)</span><span>📋 ${nq} pedido(s)</span><span>📅 ${dt}</span></div>
+      <div class="camp-card-stats"><span>📦 ${np} produto(s)</span><span>📝 ${nq} formulário(s)</span><span>📅 ${dt}</span></div>
       <div class="camp-card-actions">
         <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')">Ver detalhes</button>
         <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();copiarLinkDireto('${c.token}')">📋 Link</button>
@@ -700,10 +700,13 @@ async function carregarDetalhe(id){
   // Totalizadores gerais da campanha
   const totUnid=_itensCache.reduce((s,i)=>s+(i.quantidade||0),0);
   const totValor=_itensCache.reduce((s,i)=>s+((i.quantidade||0)*(i.valor_unit||0)),0);
+  const totPedForn=resumoPorFornecedor(_itensCache).reduce((s,f)=>s+f.peds.size,0);
+  document.getElementById('d-npedforn').textContent=totPedForn;
   const totBonif=_itensCache.reduce((s,i)=>s+Math.floor(i.bonif_quantidade||0),0);
   document.getElementById('d-stats').innerHTML=
     `<div class="stat-card"><div class="stat-num">${_produtosCache.length}</div><div class="stat-label">Produtos</div></div>`+
-    `<div class="stat-card"><div class="stat-num">${_pedidosCache.length}</div><div class="stat-label">Pedidos</div></div>`+
+    `<div class="stat-card"><div class="stat-num">${_pedidosCache.length}</div><div class="stat-label">Formulários</div></div>`+
+    `<div class="stat-card" title="Soma dos pedidos de cada fornecedor: uma loja que comprou de 2 fornecedores gera 2 pedidos"><div class="stat-num" style="color:#1565C0">${totPedForn}</div><div class="stat-label">Pedidos (por fornecedor)</div></div>`+
     `<div class="stat-card"><div class="stat-num">${totUnid}</div><div class="stat-label">Unidades</div></div>`+
     (totBonif>0?`<div class="stat-card"><div class="stat-num" style="color:#7B5EA7">${totBonif}</div><div class="stat-label">🎁 Bonificadas</div></div>`:'')+
     `<div class="stat-card" style="background:#15a563"><div class="stat-num" style="color:#fff;font-size:1.5rem">R$ ${fmtN(totValor)}</div><div class="stat-label" style="color:#d7f5e6">Valor Total</div></div>`;
@@ -767,7 +770,7 @@ async function renderPedidos(){
     <table class="ped-table"><thead><tr><th>Data/Hora</th><th>Razão Social</th><th>CNPJ</th><th>Itens</th><th>Unidades</th><th style="text-align:right">Valor do Pedido</th><th>Bonificações</th><th></th></tr></thead>
     <tbody>${linhas}</tbody>
     <tfoot><tr style="background:#e8f5e9;border-top:2px solid #15a563">
-      <td colspan="3" style="font-weight:800;color:#1B5E20">TOTAL — ${_pedidosCache.length} pedido(s)</td>
+      <td colspan="3" style="font-weight:800;color:#1B5E20">TOTAL — ${_pedidosCache.length} formulário(s)</td>
       <td style="text-align:center;font-weight:800;color:#1B5E20">${somaItens}</td>
       <td style="text-align:center;font-weight:800;color:#1B5E20">${somaUnid}</td>
       <td style="text-align:right;font-weight:800;color:#1B5E20;font-size:15px;white-space:nowrap">R$ ${fmtN(somaValor)}</td>
@@ -1107,7 +1110,7 @@ async function editarCampanha(){
   const aviso=document.getElementById('n-aviso-edicao');
   aviso.style.display='block';
   aviso.innerHTML=nped>0
-    ? `⚠️ <strong>Atenção:</strong> esta campanha já tem <strong>${nped} pedido(s)</strong> registrado(s). As alterações valem para os <strong>próximos</strong> pedidos — os já enviados mantêm os valores originais. Se você incluir uma quantidade mínima agora, vale a pena reenviar o link aos associados avisando da mudança.`
+    ? `⚠️ <strong>Atenção:</strong> esta campanha já tem <strong>${nped} formulário(s)</strong> respondido(s). As alterações valem para os <strong>próximos</strong> pedidos — os já enviados mantêm os valores originais. Se você incluir uma quantidade mínima agora, vale a pena reenviar o link aos associados avisando da mudança.`
     : `✏️ Você está editando uma campanha já criada. <strong>O link enviado aos associados continua o mesmo</strong> — não precisa reenviar (mas avise se a condição mudou).`;
 
   limparCamposProduto();
@@ -1828,7 +1831,7 @@ async function exportarConsolidado(){
   // Resumo por fornecedor
   rows.push(vazia());
   mLinha(rows.length);rows.push(linha('RESUMO POR FORNECEDOR',secForn));
-  rows.push([sc('Fornecedor',XS.cab),sc('Pedidos (lojas)',XS.cabNum),sc('Quantidade Total',XS.cabNum),sc('Valor Total (R$)',XS.cabNum)]);
+  rows.push([sc('Fornecedor',XS.cab),sc('Pedidos',XS.cabNum),sc('Quantidade Total',XS.cabNum),sc('Valor Total (R$)',XS.cabNum)]);
   lista.filter(f=>f.prods.length).forEach((f,i)=>rows.push([
     sc(f.fornecedor,i%2?XS.dadoAlt:XS.dado),
     sc(f.nPed,i%2?XS.numAlt:XS.num),
@@ -1836,7 +1839,7 @@ async function exportarConsolidado(){
     sc(Number(f.valor.toFixed(2)),i%2?XS.moedaAlt:XS.moeda)
   ]));
   const pedsDistintos=new Set((itens||[]).filter(i=>i.quantidade>0).map(i=>i.pedido_id)).size;
-  rows.push([sc('TOTAL GERAL (lojas distintas)',XS.totCab),sc(pedsDistintos,XS.totNum),sc(gQtd,XS.totNum),sc(Number(gValor.toFixed(2)),XS.totMoeda)]);
+  rows.push([sc('TOTAL GERAL — '+pedsDistintos+' formulário(s)',XS.totCab),sc(lista.reduce((s,f)=>s+f.nPed,0),XS.totNum),sc(gQtd,XS.totNum),sc(Number(gValor.toFixed(2)),XS.totMoeda)]);
 
   // Bonificações (com o fornecedor de origem)
   const todasBonif=[];
@@ -1956,7 +1959,7 @@ async function exportarDetalhado(){
 
   // Total geral da campanha
   dataRows.push([
-    sc('TOTAL GERAL — '+_pedidosCache.length+' pedido(s)',XS.totCab),sc('',XS.totCab),sc('',XS.totCab),
+    sc('TOTAL GERAL — '+_pedidosCache.length+' formulário(s)',XS.totCab),sc('',XS.totCab),sc('',XS.totCab),
     sc('',XS.totCab),sc('',XS.totCab),
     sc(gQtd,XS.totNum),sc('',XS.totNum),sc(Number(gValor.toFixed(2)),XS.totMoeda),
     sc('',XS.totCab),sc(gBonif||'',XS.totNum)
@@ -2265,7 +2268,7 @@ function renderResumoFornecedor(){
         <div class="forn-card-nome" title="${esc(f.fornecedor)}">${esc(f.fornecedor)}</div>
         <div class="forn-card-ped"><span>${f.peds.size}</span> pedido(s)</div>
         <div class="forn-card-bar"><div style="width:${pct}%"></div></div>
-        <div class="forn-card-pct">${pct}% das ${nPed} lojas que pediram</div>
+        <div class="forn-card-pct">${pct}% dos ${nPed} formulários respondidos</div>
         <div class="forn-card-rod">
           <div><b>${f.unid.toLocaleString('pt-BR')}</b><small>unidades</small></div>
           <div><b>${f.prods.size}</b><small>produtos</small></div>
