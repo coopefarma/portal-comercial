@@ -1500,12 +1500,12 @@ async function pdfIndustrias(btn){
     doc.autoTable({
       startY:y,
       head:[['#','','Indústria','Mesas','Total comprado','% do total']],
-      body:linhas.map((l,k)=>[String(k+1),'',l.i.nome,String(l.nconc),
+      body:linhas.map((l,k)=>Object.assign([String(k+1),'',l.i.nome,String(l.nconc),
         l.total>0?'R$ '+l.total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—',
-        soma?(l.total/soma*100).toFixed(1).replace('.',',')+'%':'—']),
+        soma?(l.total/soma*100).toFixed(1).replace('.',',')+'%':'—'],{_k:k})),
       foot:[[{content:'TOTAL — '+linhas.length+' indústrias ativas',colSpan:3},String(mesas),
         'R$ '+soma.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),'100%']],
-      showFoot:'lastPage',theme:'grid',
+      showFoot:'lastPage',theme:'grid',rowPageBreak:'avoid',
       margin:{left:M,right:M,top:14,bottom:16},
       styles:{font:'helvetica',fontSize:9,cellPadding:{top:2.2,bottom:2.2,left:2,right:2},textColor:[26,26,46],lineColor:[226,232,240],lineWidth:0.2,valign:'middle',minCellHeight:10},
       headStyles:{fillColor:ESC,textColor:255,fontStyle:'bold',minCellHeight:8},
@@ -1516,13 +1516,16 @@ async function pdfIndustrias(btn){
       didParseCell:d=>{if(d.column.index>=3&&d.section!=='body')d.cell.styles.halign='right';},
       didDrawCell:d=>{
         if(d.section!=='body')return;
+        // índice da linha pelo dado original (na quebra de página o autotable renumera)
+        const k=d.row.raw&&d.row.raw._k!=null?d.row.raw._k:d.row.index;
+        const l=linhas[k];if(!l)return;
         if(d.column.index===1){
-          const lg=logos[d.row.index];if(!lg)return;
+          const lg=logos[k];if(!lg)return;
           const r=Math.min(LOGO_W/lg.w,LOGO_H/lg.h),w=lg.w*r,h=lg.h*r;
           try{doc.addImage(lg.url,'JPEG',d.cell.x+(d.cell.width-w)/2,d.cell.y+(d.cell.height-h)/2,w,h);}catch(e){}
         }
         if(d.column.index===5&&soma){ // barrinha de participação
-          const p=linhas[d.row.index].total/soma;
+          const p=l.total/soma;
           doc.setFillColor(...VERDE);doc.rect(d.cell.x+2,d.cell.y+d.cell.height-2.2,(d.cell.width-4)*p,1,'F');
         }
       }
