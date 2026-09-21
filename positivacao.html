@@ -224,6 +224,30 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .linha-form input{width:100%;border:1.5px solid var(--borda);border-radius:9px;padding:10px 12px;font-size:14px;outline:none}
 .linha-form input:focus{border-color:var(--verde)}
 .nota{font-size:12px;color:var(--cinza);line-height:1.55}
+/* rodadas */
+.faixa{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  border-radius:12px;padding:11px 16px;margin-bottom:16px;font-size:13.5px}
+.faixa-hist{background:#1e293b;color:#fff}
+.faixa-hist .btn{background:#fff;color:#1e293b}
+.faixa-trava{background:var(--amarelo-bg);border:1px solid #f5d78e;color:#8a5d00}
+#tela-admin.modo-hist #nav-associados,#tela-admin.modo-hist #nav-industrias,
+#tela-admin.modo-hist #nav-regras,#tela-admin.modo-hist #nav-refresh{display:none}
+#tela-admin.modo-hist .a-topo{background:#f1f5f9}
+.rod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.rod-card{border:1px solid var(--borda);border-radius:13px;padding:14px 16px;background:#fff}
+.rod-card.atual{border-color:#a7e3c4;background:#f7fdf9}
+.rod-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.rod-nome{font-family:'Poppins',sans-serif;font-weight:700;font-size:15px}
+.rod-data{font-size:12px;color:var(--cinza);margin-top:3px}
+.rod-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--borda)}
+.rod-kpis div{display:flex;flex-direction:column}
+.rod-kpis b{font-family:'Poppins',sans-serif;font-size:16px;white-space:nowrap}
+.rod-kpis small{font-size:10px;color:var(--cinza);text-transform:uppercase;letter-spacing:.3px}
+.rod-acoes{display:flex;gap:8px;margin-top:12px}
+.m-check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.45;margin:10px 0;cursor:pointer;text-align:left}
+.m-check input{width:17px;height:17px;margin-top:2px;accent-color:var(--verde);flex-shrink:0}
+.c-encerrada{max-width:620px;margin:12px auto 0;padding:10px 14px;border-radius:10px;background:#1e293b;color:#fff;
+  font-size:13px;text-align:center;line-height:1.45}
 .aviso-cfg{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;
   font-size:12.5px;color:#78350f;line-height:1.55;margin:16px}
 
@@ -271,6 +295,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
     <span><i class="pip verde"></i> Valor registrado</span>
   </div>
 
+  <div id="c-encerrada" style="padding:0 12px"></div>
   <div id="c-coletiva"></div>
   <div class="c-grade" id="c-grade"></div>
 </div>
@@ -303,13 +328,15 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
       <button id="nav-industrias" onclick="irPara('industrias')">Indústrias</button>
       <button id="nav-sorteio" onclick="irPara('sorteio')">Sorteio</button>
       <button id="nav-regras" onclick="irPara('regras')">Regras</button>
-      <button onclick="carregarTudo(true)" title="Atualizar">↻</button>
+      <button id="nav-rodadas" onclick="irPara('rodadas')">Rodadas</button>
+      <button id="nav-refresh" onclick="carregarTudo(true)" title="Atualizar">↻</button>
       <button onclick="sair()">Sair</button>
     </div>
     <div class="a-user" id="a-user"></div>
   </div>
 
   <div class="a-corpo">
+    <div id="faixa-modo"></div>
     <!-- PAINEL -->
     <div class="pagina ativo" id="pg-painel">
       <div class="kpis" id="k-painel"></div>
@@ -382,6 +409,20 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
         <div class="rolagem" id="sorteio-tabela"></div>
       </div>
       <p class="nota" style="margin-top:12px">O arquivo de cupons traz o nome da loja repetido uma vez por cupom — é o formato que os sorteadores online (Sorteador.com.br, Sortea.me) aceitam colando direto na lista de participantes.</p>
+    </div>
+
+    <!-- RODADAS -->
+    <div class="pagina" id="pg-rodadas">
+      <div class="painel" style="margin-bottom:18px">
+        <div class="painel-cab"><h3>Rodada atual</h3></div>
+        <div id="rod-atual" style="padding:16px"></div>
+      </div>
+      <div class="painel">
+        <div class="painel-cab"><h3>Rodadas encerradas</h3></div>
+        <div id="rod-lista" style="padding:16px"></div>
+      </div>
+      <p class="nota" style="margin-top:12px">Encerrar grava uma cópia completa da rodada (mapa, valores, representantes, Compra Coletiva, cupons e regras).
+        Abrindo uma rodada salva, o Painel e o Sorteio mostram os dados dela em modo somente leitura — inclusive os downloads da lista de cupons.</p>
     </div>
 
     <!-- REGRAS -->
@@ -607,11 +648,13 @@ async function initCartao(){
 }
 
 async function atualizarCartao(){
-  const [{data},{data:eu},{data:inds}]=await Promise.all([
+  const [{data},{data:eu},{data:inds},{data:cfg}]=await Promise.all([
     sb.from('rn_registros').select('*').eq('associado_id',EU.id),
     sb.from('rn_associados').select('*').eq('id',EU.id).maybeSingle(),
-    sb.from('rn_industrias').select('*').eq('ativa',true).order('ordem')
+    sb.from('rn_industrias').select('*').eq('ativa',true).order('ordem'),
+    sb.from('rn_config').select('*').eq('id',1).maybeSingle()
   ]);
+  if(cfg)CFG=cfg;              // retaguarda encerrou ou reabriu a rodada
   REGS=data||[];
   if(eu)EU=eu;                 // pega a Compra Coletiva lançada na retaguarda
   if(inds&&inds.length)INDS=inds;  // indústria incluída ou desativada na hora
@@ -642,7 +685,10 @@ function renderCartao(){
   const meta=proximaMeta(c.conc);
   const el=$('s-meta');
   const falta=m=>(m.faltam>1?'Faltam <b>'+m.faltam+' mesas</b>':'Falta <b>1 mesa</b>')+' para '+esc(m.txt)+'.';
-  if(!meta){
+  if(CFG.encerrada){
+    el.className='c-meta'+(c.apto?' apto':'');
+    el.innerHTML=c.apto?'🏁 Resultado final: <b>'+c.cupons+' cupons</b> no sorteio.':'🏁 Resultado final: a loja não atingiu o piso de positivação.';
+  }else if(!meta){
     el.className='c-meta apto';
     el.innerHTML='🏆 Positivação máxima! Você está com <b>'+c.cupons+' cupons</b> no sorteio.';
   }else if(!c.apto){
@@ -652,6 +698,9 @@ function renderCartao(){
     el.className='c-meta apto';
     el.innerHTML='✅ Apto ao sorteio'+(c.rotulo?' com <b>'+esc(c.rotulo)+'</b>':'')+'. '+falta(meta);
   }
+
+  $('c-encerrada').innerHTML = CFG.encerrada
+    ? '<div class="c-encerrada">🏁 <b>Rodada encerrada.</b> Os lançamentos estão fechados — este cartão fica disponível só para consulta.</div>' : '';
 
   $('c-coletiva').innerHTML = c.coletiva>0 ? `
     <div class="coletiva"><div class="cx">
@@ -683,6 +732,16 @@ function abrirMesa(indId,editar){
   const ind=INDS.find(i=>i.id===indId);
   const r=regDe(indId);
   let corpo;
+  if(CFG.encerrada&&(!r||r.status==='iniciado'||editar)){
+    $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
+      <div class="modal">
+        <img class="m-logo" src="${logoDe(ind)}" alt="${esc(ind.nome)}"/>
+        <div class="m-titulo">${esc(ind.nome)}</div>
+        <div class="m-sub">🏁 A rodada foi encerrada. Não é possível iniciar, lançar nem alterar pedidos.</div>
+        <div class="m-acoes"><button class="btn btn-primary" onclick="fecharModal()">Fechar</button></div>
+      </div></div>`;
+    return;
+  }
   const emEdicao=!!(editar&&r&&r.status==='concluido');
   const valIni=emEdicao&&r.valor?Number(r.valor).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
 
@@ -731,7 +790,7 @@ function abrirMesa(indId,editar){
       </div>
       ${r.editado_em?`<div class="m-aviso">Alterado em ${new Date(r.editado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>`:''}
       <div class="m-acoes">
-        <button class="btn btn-ghost" onclick="abrirMesa('${indId}',true)">Editar</button>
+        ${CFG.encerrada?'':`<button class="btn btn-ghost" onclick="abrirMesa('${indId}',true)">Editar</button>`}
         <button class="btn btn-primary" onclick="fecharModal()">Fechar</button>
       </div>`;
   }
@@ -745,6 +804,7 @@ function abrirMesa(indId,editar){
 }
 
 async function iniciarMesa(indId,btn){
+  if(CFG.encerrada){fecharModal();toast('Rodada encerrada.');return;}
   btn.disabled=true;btn.textContent='Salvando...';
   const {error}=await sb.from('rn_registros').insert({
     associado_id:EU.id,industria_id:indId,status:'iniciado'
@@ -756,6 +816,7 @@ async function iniciarMesa(indId,btn){
 }
 
 async function concluirMesa(indId,btn,edicao){
+  if(CFG.encerrada){fecharModal();toast('Rodada encerrada.');return;}
   const rep=$('f-rep').value.trim();
   const tel=$('f-tel').value.trim();
   const val=lerMoeda($('f-val'));
@@ -798,6 +859,7 @@ async function entrarAdmin(){
 }
 
 function irPara(pag){
+  if(pag==='rodadas'&&HIST){sairHistorico('rodadas');return;}
   document.querySelectorAll('.pagina').forEach(p=>p.classList.remove('ativo'));
   document.querySelectorAll('.a-nav button').forEach(b=>b.classList.remove('ativo'));
   $('pg-'+pag).classList.add('ativo');
@@ -807,6 +869,8 @@ function irPara(pag){
   if(pag==='industrias')renderIndustrias();
   if(pag==='sorteio')renderSorteio();
   if(pag==='regras')renderRegras();
+  if(pag==='rodadas')renderRodadas();
+  renderFaixa();
 }
 
 async function carregarTudo(aviso){
@@ -939,18 +1003,19 @@ function abrirDetalhe(assocId,focoInd){
       <div class="m-aviso">
         Mesas: <b>${brl(c.valorMesas)}</b> &nbsp;+&nbsp; Compra Coletiva: <b>${brl(c.coletiva)}</b>
         &nbsp;=&nbsp; total <b>${brl(c.valor)}</b>
-        <button class="btn btn-ghost btn-sm" style="float:right;margin-top:-3px"
-                onclick="editarColetiva('${assocId}')">Lançar Compra Coletiva</button>
+        ${HIST?'':`<button class="btn btn-ghost btn-sm" style="float:right;margin-top:-3px"
+                onclick="editarColetiva('${assocId}')">Lançar Compra Coletiva</button>`}
       </div>
       <div class="m-aviso">${c.apto?'Apto ao sorteio'+(c.rotulo?' — <b>'+esc(c.rotulo)+'</b>':'')+`. ${c.base} cupom(ns) por volume × ${c.mult} = <b>${c.cupons}</b>.`
         :`Ainda não atingiu o piso de ${CFG.piso_positivacao}% — sem cupons até lá. A Compra Coletiva só vira cupom depois que a loja ficar apta.`}</div>
       <div class="det-grade">${itens}</div>
       <div class="m-acoes"><button class="btn btn-ghost" onclick="fecharModal()">Fechar</button></div>
     </div></div>`;
-  if(focoInd)editarRegistro(assocId,focoInd);
+  if(focoInd&&!HIST)editarRegistro(assocId,focoInd);
 }
 
 function editarRegistro(assocId,indId){
+  if(HIST)return somenteLeitura();
   const a=ASSOCS.find(x=>x.id===assocId);
   const ind=INDS.find(i=>i.id===indId);
   const r=REGS.find(x=>x.associado_id===assocId&&x.industria_id===indId);
@@ -1015,6 +1080,7 @@ async function apagarRegistro(assocId,indId){
 /* Valor do CompraCoop lançado à mão: o cartão do associado abre sem
    login e as tabelas cc_* só liberam leitura para quem está logado. */
 function editarColetiva(assocId,origem){
+  if(HIST)return somenteLeitura();
   const volta = origem==='lista' ? `fecharModal()` : `abrirDetalhe('${assocId}')`;
   const a=ASSOCS.find(x=>x.id===assocId);
   const v=Number(a.valor_compra_coletiva||0);
@@ -1087,6 +1153,7 @@ function enviarWhats(id){
 }
 
 function abrirAssociado(id){
+  if(HIST)return somenteLeitura();
   const a=id?ASSOCS.find(x=>x.id===id):null;
   $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
     <div class="modal">
@@ -1236,6 +1303,7 @@ function lerLogo(file){
 let _logoNovo=null;   // data URI escolhido no modal aberto
 
 function abrirIndustria(id){
+  if(HIST)return somenteLeitura();
   const i=id?INDS_ADMIN.find(x=>x.id===id):null;
   _logoNovo=null;
   const contamHoje=INDS_ADMIN.filter(x=>x.ativa&&x.conta_positivacao).length;
@@ -1404,13 +1472,13 @@ function baixarLista(tipo){
     const out=[];
     linhas.forEach(l=>{const et=l.a.nome+(l.a.cidade?' - '+l.a.cidade:'');
       for(let i=0;i<l.c.cupons;i++)out.push(et);});
-    txt=out.join('\n');nome='cupons-sorteio.txt';
+    txt=out.join('\n');nome=(HIST?slugArq(HIST.nome)+'-':'')+'cupons-sorteio.txt';
   }else{
     const n2=v=>Number(v||0).toFixed(2).replace('.',',');
     txt='Loja;Cidade;Mesas;Positivacao;Valor mesas;Compra coletiva;Valor total;Base;Multiplicador;Cupons\n'+
       linhas.map(l=>[l.a.nome,l.a.cidade||'',l.c.conc+'/'+l.c.total,Math.round(l.c.pct)+'%',
         n2(l.c.valorMesas),n2(l.c.coletiva),n2(l.c.valor),l.c.base,l.c.mult,l.c.cupons].join(';')).join('\n');
-    nome='resumo-positivacao.csv';
+    nome=(HIST?slugArq(HIST.nome)+'-':'')+'resumo-positivacao.csv';
   }
   const blob=new Blob(['﻿'+txt],{type:'text/plain;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -1451,6 +1519,7 @@ function renderManutencao(){
 }
 
 function abrirZerar(){
+  if(HIST)return somenteLeitura();
   const n=REGS.length;
   if(!n){toast('Não há lançamentos para apagar.');return;}
   $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
@@ -1523,11 +1592,247 @@ function simularRegras(){
 }
 
 async function salvarRegras(){
+  if(HIST)return somenteLeitura();
   const r=lerRegrasDoForm();
   const {error}=await sb.from('rn_config').update({...r,atualizado_em:new Date().toISOString()}).eq('id',1);
   if(error){toast('Erro ao salvar as regras.');return;}
   await carregarTudo();
   toast('Regras salvas.');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RODADAS — encerrar, guardar e consultar depois
+   Ao encerrar, a rodada inteira (regras, indústrias, lojas e
+   lançamentos) é gravada como uma fotografia em rn_rodadas.
+   Para consultar, a retaguarda troca os dados da tela pelos da
+   fotografia e reaproveita o Painel e o Sorteio em modo leitura.
+   ═══════════════════════════════════════════════════════════ */
+let HIST=null;     // rodada encerrada aberta para consulta (null = rodada atual)
+let VIVO=null;     // dados da rodada atual guardados enquanto consulta o histórico
+
+const slugArq=s=>String(s||'rodada').normalize('NFD').replace(/[̀-ͯ]/g,'')
+  .replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase();
+const dataHora=d=>d?new Date(d).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+function somenteLeitura(){toast('Rodada encerrada — somente consulta.');}
+
+function resumoAtual(){
+  const ativos=linhasCalculadas().filter(l=>l.a.ativo);
+  const mesasFeitas=ativos.reduce((s,l)=>s+l.c.conc,0);
+  const mesasPossiveis=ativos.length*totalMesas();
+  return {
+    lojas_cadastradas:ativos.length,
+    lojas_em_campo:ativos.filter(l=>l.c.conc+l.c.ini>0).length,
+    aptas:ativos.filter(l=>l.c.apto).length,
+    total_mesas:totalMesas(),
+    mesas_feitas:mesasFeitas,
+    mesas_possiveis:mesasPossiveis,
+    positivacao:mesasPossiveis?Math.round(mesasFeitas/mesasPossiveis*100):0,
+    valor_mesas:ativos.reduce((s,l)=>s+l.c.valorMesas,0),
+    valor_coletiva:ativos.reduce((s,l)=>s+l.c.coletiva,0),
+    valor_total:ativos.reduce((s,l)=>s+l.c.valor,0),
+    cupons:ativos.reduce((s,l)=>s+l.c.cupons,0),
+    lojas_sorteio:ativos.filter(l=>l.c.cupons>0).length,
+    lancamentos:REGS.length
+  };
+}
+
+function miniKpis(r){
+  return `<div class="rod-kpis">
+    <div><b>${r.lojas_em_campo??0}</b><small>lojas em campo</small></div>
+    <div><b>${r.aptas??0}</b><small>lojas aptas</small></div>
+    <div><b>${r.positivacao??0}%</b><small>positivação</small></div>
+    <div><b>${brlCurto(r.valor_total)}</b><small>volume</small></div>
+    <div><b style="color:var(--verde)">${r.cupons??0}</b><small>cupons</small></div>
+  </div>`;
+}
+
+/* faixa no topo: modo consulta ou cartões travados */
+function renderFaixa(){
+  const el=$('faixa-modo');if(!el)return;
+  if(HIST){
+    el.innerHTML=`<div class="faixa faixa-hist">
+      <span>📁 Consultando a rodada encerrada <b>${esc(HIST.nome)}</b> — encerrada em ${dataHora(HIST.encerrada_em)}. Somente leitura.</span>
+      <button class="btn btn-sm" onclick="sairHistorico('rodadas')">Voltar à rodada atual</button></div>`;
+  }else if(CFG&&CFG.encerrada){
+    el.innerHTML=`<div class="faixa faixa-trava">
+      <span>🏁 Os cartões dos associados estão <b>travados</b> — a rodada foi encerrada e ninguém consegue lançar ou alterar mesas.</span>
+      <button class="btn btn-ghost btn-sm" onclick="reabrirCartoes()">Reabrir cartões</button></div>`;
+  }else el.innerHTML='';
+}
+
+async function renderRodadas(){
+  const r=resumoAtual();
+  $('rod-atual').innerHTML=`
+    <div class="rod-card atual">
+      <div class="rod-cab">
+        <div><div class="rod-nome">${esc(CFG.evento_nome||'Rodada atual')}</div>
+          <div class="rod-data">${CFG.encerrada?'<span class="tag tag-amarela">cartões travados</span>':'<span class="tag tag-verde">em andamento</span>'}
+          &nbsp;${r.lancamentos} lançamento(s) no banco</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${CFG.encerrada?'<button class="btn btn-ghost btn-sm" onclick="reabrirCartoes()">Reabrir cartões</button>':''}
+          <button class="btn btn-perigo btn-sm" onclick="abrirEncerrar()">🏁 Encerrar e salvar rodada</button>
+        </div>
+      </div>
+      ${miniKpis(r)}
+    </div>`;
+
+  const lista=$('rod-lista');
+  lista.innerHTML='<div class="carregando"><div class="spin"></div></div>';
+  const {data,error}=await sb.from('rn_rodadas')
+    .select('id,nome,encerrada_em,encerrada_por,resumo').order('encerrada_em',{ascending:false});
+  if(error){
+    lista.innerHTML=`<div class="vazio">Não consegui ler as rodadas salvas.<br>
+      Se ainda não rodou, cole o arquivo <b>sql-rodadas.sql</b> no SQL Editor do Supabase.<br><small>${esc(error.message)}</small></div>`;
+    return;
+  }
+  lista.innerHTML=(data&&data.length)?`<div class="rod-grid">`+data.map(x=>`
+    <div class="rod-card">
+      <div class="rod-cab">
+        <div><div class="rod-nome">${esc(x.nome)}</div>
+          <div class="rod-data">Encerrada em ${dataHora(x.encerrada_em)}${x.encerrada_por?' · '+esc(x.encerrada_por):''}</div></div>
+      </div>
+      ${miniKpis(x.resumo||{})}
+      <div class="rod-acoes">
+        <button class="btn btn-primary btn-sm" onclick="abrirRodada('${x.id}')">Abrir</button>
+        <button class="btn btn-perigo btn-sm" onclick="abrirExcluirRodada('${x.id}')">Excluir</button>
+      </div>
+    </div>`).join('')+`</div>`
+    :'<div class="vazio">Nenhuma rodada encerrada ainda.</div>';
+}
+
+function abrirEncerrar(){
+  if(HIST)return somenteLeitura();
+  const r=resumoAtual();
+  $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
+    <div class="modal">
+      <div class="m-titulo">🏁 Encerrar e salvar rodada</div>
+      <div class="m-sub">Grava uma cópia completa desta rodada — mapa, valores, representantes, Compra Coletiva, cupons e as regras usadas.
+        Ela fica na aba <b>Rodadas</b> para consulta a qualquer momento.</div>
+      <div class="m-aviso">Hoje: <b>${r.lojas_em_campo}</b> lojas em campo · <b>${r.aptas}</b> aptas · <b>${r.positivacao}%</b> de positivação ·
+        <b>${brl(r.valor_total)}</b> · <b>${r.cupons}</b> cupons · ${r.lancamentos} lançamentos.</div>
+      <div class="m-campo">
+        <label>Nome da rodada</label>
+        <input id="e-nome" value="${esc(CFG.evento_nome||'Rodada de Negócios')}"/>
+      </div>
+      <label class="m-check"><input type="checkbox" id="e-travar" checked/>
+        <span><b>Travar os cartões dos associados</b> — ninguém consegue iniciar, lançar ou alterar mesa. Dá para reabrir depois.</span></label>
+      <label class="m-check"><input type="checkbox" id="e-zerar"/>
+        <span><b>Zerar os lançamentos e a Compra Coletiva</b> depois de salvar, para preparar a próxima rodada.
+        Associados, links, indústrias e regras continuam.</span></label>
+      <div class="m-campo">
+        <label>Digite ENCERRAR para liberar o botão</label>
+        <input id="e-txt" autocomplete="off" placeholder="ENCERRAR" style="text-align:center;text-transform:uppercase;font-weight:700"
+               oninput="document.getElementById('e-ok').disabled=this.value.trim().toUpperCase()!=='ENCERRAR'"/>
+      </div>
+      <div class="m-erro" id="e-erro"></div>
+      <div class="m-acoes">
+        <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
+        <button class="btn btn-primary" id="e-ok" disabled onclick="confirmarEncerrar(this)">Encerrar e salvar</button>
+      </div>
+    </div></div>`;
+}
+
+async function confirmarEncerrar(btn){
+  const nome=$('e-nome').value.trim()||CFG.evento_nome||'Rodada de Negócios';
+  const travar=$('e-travar').checked, zerar=$('e-zerar').checked;
+  const erro=m=>{btn.disabled=false;btn.textContent='Encerrar e salvar';$('e-erro').innerHTML=m;};
+  btn.disabled=true;btn.textContent='Salvando...';
+
+  // 1) dados frescos do banco antes de fotografar
+  await carregarBase();
+  const [a,r,it]=await Promise.all([
+    sb.from('rn_associados').select('*').order('nome'),
+    sb.from('rn_registros').select('*'),
+    sb.from('rn_industrias').select('*').order('ordem')
+  ]);
+  if(a.error||r.error||it.error)return erro('Erro ao ler os dados atuais. Tente de novo.');
+  ASSOCS=a.data||[];REGS=r.data||[];INDS_ADMIN=it.data||[];
+
+  // 2) grava a fotografia — só depois disso qualquer coisa é travada ou apagada
+  const resumo=resumoAtual();
+  const dados={versao:1,cfg:CFG,inds:INDS,inds_admin:INDS_ADMIN,assocs:ASSOCS,regs:REGS};
+  const {data:salva,error:eIns}=await sb.from('rn_rodadas')
+    .insert({nome,encerrada_por:EMAIL||null,resumo,dados}).select('id,nome,encerrada_em').single();
+  if(eIns||!salva)return erro('Não consegui salvar a rodada — nada foi travado nem apagado.<br><small>'+
+    esc(eIns?eIns.message:'sem retorno')+'</small><br>Se for a primeira vez, rode o <b>sql-rodadas.sql</b> no Supabase.');
+
+  // 3) opções
+  const avisos=[];
+  if(travar){
+    const {error}=await sb.from('rn_config').update({encerrada:true}).eq('id',1);
+    avisos.push(error?'⚠️ Não consegui travar os cartões ('+esc(error.message)+').':'Cartões dos associados travados.');
+  }
+  if(zerar){
+    const {error:e1}=await sb.from('rn_registros').delete().neq('status','__nenhum__');
+    const {error:e2}=await sb.from('rn_associados').update({valor_compra_coletiva:0}).neq('token','__nenhum__');
+    avisos.push(e1||e2?'⚠️ A rodada foi salva, mas o zeramento falhou — use "Zerar" na aba Regras.':'Lançamentos e Compra Coletiva zerados para a próxima rodada.');
+  }
+
+  await carregarTudo();
+  $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
+    <div class="modal">
+      <div style="font-size:42px;text-align:center;line-height:1">✅</div>
+      <div class="m-titulo" style="margin-top:8px">Rodada salva</div>
+      <div class="m-sub"><b>${esc(salva.nome)}</b> foi guardada com ${resumo.lancamentos} lançamentos, ${resumo.cupons} cupons e ${brl(resumo.valor_total)}.</div>
+      ${avisos.length?`<div class="m-aviso">${avisos.join('<br>')}</div>`:''}
+      <div class="m-acoes">
+        <button class="btn btn-ghost" onclick="fecharModal();irPara('rodadas')">Ver rodadas</button>
+        <button class="btn btn-primary" onclick="fecharModal();abrirRodada('${salva.id}')">Abrir a rodada salva</button>
+      </div>
+    </div></div>`;
+}
+
+async function reabrirCartoes(){
+  if(!confirm('Reabrir os cartões? Os associados voltam a conseguir iniciar e lançar mesas.'))return;
+  const {error}=await sb.from('rn_config').update({encerrada:false}).eq('id',1);
+  if(error){toast('Erro ao reabrir: '+error.message);return;}
+  await carregarTudo();
+  toast('Cartões reabertos.');
+}
+
+async function abrirRodada(id){
+  toast('Abrindo rodada...');
+  const {data,error}=await sb.from('rn_rodadas').select('*').eq('id',id).single();
+  if(error||!data||!data.dados){toast('Não consegui abrir essa rodada.');return;}
+  if(!HIST)VIVO={CFG,INDS,INDS_ADMIN,ASSOCS,REGS};
+  const d=data.dados;
+  CFG=d.cfg;INDS=d.inds||[];INDS_ADMIN=d.inds_admin||d.inds||[];ASSOCS=d.assocs||[];REGS=d.regs||[];
+  HIST=data;
+  $('tela-admin').classList.add('modo-hist');
+  $('f-painel').value='';
+  irPara('painel');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function sairHistorico(destino){
+  if(VIVO){({CFG,INDS,INDS_ADMIN,ASSOCS,REGS}=VIVO);}
+  HIST=null;VIVO=null;
+  $('tela-admin').classList.remove('modo-hist');
+  await carregarTudo();
+  irPara(destino||'painel');
+}
+
+function abrirExcluirRodada(id){
+  $('modais').innerHTML=`<div class="overlay" onclick="if(event.target===this)fecharModal()">
+    <div class="modal">
+      <div class="m-titulo" style="color:var(--vermelho)">Excluir rodada salva</div>
+      <div class="m-sub">Apaga só a cópia guardada desta rodada. A rodada atual não é tocada. Não tem como desfazer.</div>
+      <div class="m-campo">
+        <label>Digite EXCLUIR para liberar o botão</label>
+        <input id="x-txt" autocomplete="off" placeholder="EXCLUIR" style="text-align:center;text-transform:uppercase;font-weight:700"
+               oninput="document.getElementById('x-ok').disabled=this.value.trim().toUpperCase()!=='EXCLUIR'"/>
+      </div>
+      <div class="m-acoes">
+        <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
+        <button class="btn btn-perigo" id="x-ok" disabled onclick="excluirRodada('${id}',this)">Excluir</button>
+      </div>
+    </div></div>`;
+}
+async function excluirRodada(id,btn){
+  btn.disabled=true;
+  const {error}=await sb.from('rn_rodadas').delete().eq('id',id);
+  if(error){btn.disabled=false;toast('Erro ao excluir: '+error.message);return;}
+  fecharModal();renderRodadas();toast('Rodada excluída.');
 }
 
 /* ═══════════════════════════════════════════════════════════
