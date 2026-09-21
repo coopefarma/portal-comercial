@@ -1775,8 +1775,8 @@ async function exportarConsolidado(){
   const lista=Object.keys(grupos)
     .sort((a,b)=>a===SEM_FORN?1:b===SEM_FORN?-1:a.localeCompare(b,'pt-BR'))
     .map(f=>{
-      const prods=Object.values(grupos[f].prods).sort((a,b)=>a.descricao.localeCompare(b.descricao,'pt-BR'));
-      const bonifs=Object.values(grupos[f].bonifs).sort((a,b)=>a.descricao.localeCompare(b.descricao,'pt-BR'));
+      const prods=Object.values(grupos[f].prods).sort((a,b)=>String(a.descricao||'').localeCompare(String(b.descricao||''),'pt-BR'));
+      const bonifs=Object.values(grupos[f].bonifs).sort((a,b)=>String(a.descricao||'').localeCompare(String(b.descricao||''),'pt-BR'));
       return {fornecedor:f,prods,bonifs,nPed:grupos[f].peds.size,
         qtd:prods.reduce((s,d)=>s+d.total,0),
         valor:prods.reduce((s,d)=>s+d.valor,0)};
