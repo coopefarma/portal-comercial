@@ -230,7 +230,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .faixa-hist{background:#1e293b;color:#fff}
 .faixa-hist .btn{background:#fff;color:#1e293b}
 .faixa-trava{background:var(--amarelo-bg);border:1px solid #f5d78e;color:#8a5d00}
-#tela-admin.modo-hist #nav-associados,#tela-admin.modo-hist #nav-industrias,
+#tela-admin.modo-hist .so-vivo,#tela-admin.modo-hist .acoes-ind{display:none}
+#tela-admin.modo-hist #nav-associados,
 #tela-admin.modo-hist #nav-regras,#tela-admin.modo-hist #nav-refresh{display:none}
 #tela-admin.modo-hist .a-topo{background:#f1f5f9}
 .rod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
@@ -382,8 +383,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
         <div class="painel-cab">
           <h3>Indústrias da rodada</h3>
           <div class="dir">
-            <button class="btn btn-ghost btn-sm" onclick="ordenarIndustrias()">Reordenar A–Z</button>
-            <button class="btn btn-primary btn-sm" onclick="abrirIndustria(null)">+ Nova indústria</button>
+            <button class="btn btn-ghost btn-sm" onclick="pdfIndustrias(this)">📄 PDF do total comprado</button>
+            <button class="btn btn-ghost btn-sm so-vivo" onclick="ordenarIndustrias()">Reordenar A–Z</button>
+            <button class="btn btn-primary btn-sm so-vivo" onclick="abrirIndustria(null)">+ Nova indústria</button>
           </div>
         </div>
         <div class="rolagem" id="ind-tabela"></div>
@@ -490,6 +492,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 <div id="modais"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
    POSITIVAÇÃO — Rodada de Negócios Coopefarma
@@ -1252,7 +1256,7 @@ function renderIndustrias(){
 
   $('ind-tabela').innerHTML=INDS_ADMIN.length?`<table class="tab-ind">
     <thead><tr><th>Logo</th>${th('nome','Indústria')}${th('ordem','Ordem','num')}<th>Conta positivação</th>
-      <th>Situação</th>${th('usos','Lançamentos','num')}${th('total','Total comprado','num')}<th>Ações</th></tr></thead>
+      <th>Situação</th>${th('usos','Lançamentos','num')}${th('total','Total comprado','num')}<th class="acoes-ind">Ações</th></tr></thead>
     <tbody>${linhas.map(({i,usos,nconc,total})=>{
       return `<tr style="${i.ativa?'':'opacity:.5'}">
         <td><img src="${logoDe(i)}" alt="" style="height:26px;width:70px;object-fit:contain"/></td>
@@ -1262,7 +1266,7 @@ function renderIndustrias(){
         <td>${i.ativa?'<span class="tag tag-verde">ativa</span>':'<span class="tag tag-cinza">inativa</span>'}</td>
         <td class="num">${usos||'—'}</td>
         <td class="num" title="${nconc} mesa(s) concluída(s)">${total>0?'<b>'+brl(total)+'</b>':'—'}</td>
-        <td style="white-space:nowrap">
+        <td style="white-space:nowrap" class="acoes-ind">
           <button class="btn btn-ghost btn-sm" onclick="abrirIndustria('${i.id}')">Editar</button>
           <button class="btn btn-ghost btn-sm" onclick="alternarIndustria('${i.id}')">${i.ativa?'Desativar':'Ativar'}</button>
           <button class="btn btn-perigo btn-sm" onclick="excluirIndustria('${i.id}')">Excluir</button>
@@ -1388,6 +1392,7 @@ async function salvarIndustria(id,btn){
 }
 
 async function alternarIndustria(id){
+  if(HIST)return somenteLeitura();
   const i=INDS_ADMIN.find(x=>x.id===id);
   const novo=!i.ativa;
   const usos=REGS.filter(r=>r.industria_id===id).length;
@@ -1405,6 +1410,7 @@ async function alternarIndustria(id){
 }
 
 async function excluirIndustria(id){
+  if(HIST)return somenteLeitura();
   const i=INDS_ADMIN.find(x=>x.id===id);
   const usos=REGS.filter(r=>r.industria_id===id).length;
   if(usos){
@@ -1419,6 +1425,7 @@ async function excluirIndustria(id){
 }
 
 async function ordenarIndustrias(){
+  if(HIST)return somenteLeitura();
   if(!confirm('Renumerar todas as indústrias em ordem alfabética?'))return;
   const ord=[...INDS_ADMIN].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
   for(let k=0;k<ord.length;k++){
@@ -1426,6 +1433,117 @@ async function ordenarIndustrias(){
   }
   await carregarTudo();irPara('industrias');
   toast('Ordem alfabética aplicada.');
+}
+
+/* ── PDF: total comprado por indústria ──────────────────── */
+function imgParaDataURL(src){
+  return new Promise(res=>{
+    const im=new Image();
+    im.onload=()=>{try{
+      const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;
+      const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0);
+      res({url:c.toDataURL('image/jpeg',0.92),w:im.naturalWidth,h:im.naturalHeight});
+    }catch(e){res(null);}};
+    im.onerror=()=>res(null);
+    im.src=src;
+  });
+}
+
+async function pdfIndustrias(btn){
+  if(!window.jspdf||!window.jspdf.jsPDF){toast('A biblioteca de PDF não carregou. Recarregue a página (Ctrl+F5).');return;}
+  const txtBtn=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Gerando PDF...';}
+  try{
+    const lojasAtivas=new Set(ASSOCS.filter(a=>a.ativo).map(a=>a.id));
+    const linhas=INDS_ADMIN.filter(i=>i.ativa).map(i=>{
+      const conc=REGS.filter(r=>r.industria_id===i.id&&r.status==='concluido'&&lojasAtivas.has(r.associado_id));
+      return {i,nconc:conc.length,total:conc.reduce((s,r)=>s+Number(r.valor||0),0)};
+    }).sort((a,b)=>b.total-a.total||a.i.nome.localeCompare(b.i.nome,'pt-BR'));
+    const soma=linhas.reduce((s,l)=>s+l.total,0);
+    const mesas=linhas.reduce((s,l)=>s+l.nconc,0);
+    const comCompra=linhas.filter(l=>l.total>0).length;
+    const coletiva=ASSOCS.filter(a=>a.ativo).reduce((s,a)=>s+Number(a.valor_compra_coletiva||0),0);
+
+    // logos (arquivo da pasta logos/ ou imagem gravada no banco)
+    const logos=await Promise.all(linhas.map(l=>imgParaDataURL(logoDe(l.i))));
+
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:'mm',format:'a4'});
+    const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=12;
+    const VERDE=[21,165,99],ESC=[14,122,73];
+    const titulo=HIST?HIST.nome:(CFG.evento_nome||'Rodada de Negócios');
+    const agora=new Date().toLocaleString('pt-BR');
+
+    doc.setFillColor(...VERDE);doc.rect(0,0,W,24,'F');
+    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(15);
+    doc.text('TOTAL COMPRADO POR INDÚSTRIA',M,11);
+    doc.setFont('helvetica','normal');doc.setFontSize(10);
+    doc.text(titulo+(HIST?'  ·  rodada encerrada em '+new Date(HIST.encerrada_em).toLocaleDateString('pt-BR'):''),M,18);
+    doc.setFontSize(8.5);doc.text('Coopefarma',W-M,18,{align:'right'});
+
+    // cards de resumo
+    const cards=[['TOTAL COMPRADO','R$ '+Number(soma).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})],
+                 ['INDÚSTRIAS COM COMPRA',comCompra+' de '+linhas.length],
+                 ['MESAS CONCLUÍDAS',String(mesas)],
+                 ['TICKET MÉDIO POR MESA',mesas?'R$ '+(soma/mesas).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—']];
+    const cw=(W-2*M-9)/4;let y=30;
+    cards.forEach((c,k)=>{
+      const x=M+k*(cw+3);
+      doc.setDrawColor(226,232,240);doc.setFillColor(k===0?233:248,k===0?249:250,k===0?241:252);
+      doc.roundedRect(x,y,cw,17,2,2,'FD');
+      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,116,139);doc.text(c[0],x+3,y+5.5);
+      doc.setFontSize(k===0?12:11.5);doc.setTextColor(...(k===0?ESC:[26,26,46]));doc.text(c[1],x+3,y+12.5);
+    });
+    y+=23;
+
+    const LOGO_W=18,LOGO_H=7;
+    doc.autoTable({
+      startY:y,
+      head:[['#','','Indústria','Mesas','Total comprado','% do total']],
+      body:linhas.map((l,k)=>[String(k+1),'',l.i.nome,String(l.nconc),
+        l.total>0?'R$ '+l.total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—',
+        soma?(l.total/soma*100).toFixed(1).replace('.',',')+'%':'—']),
+      foot:[[{content:'TOTAL — '+linhas.length+' indústrias ativas',colSpan:3},String(mesas),
+        'R$ '+soma.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),'100%']],
+      showFoot:'lastPage',theme:'grid',
+      margin:{left:M,right:M,top:14,bottom:16},
+      styles:{font:'helvetica',fontSize:9,cellPadding:{top:2.2,bottom:2.2,left:2,right:2},textColor:[26,26,46],lineColor:[226,232,240],lineWidth:0.2,valign:'middle',minCellHeight:10},
+      headStyles:{fillColor:ESC,textColor:255,fontStyle:'bold',minCellHeight:8},
+      footStyles:{fillColor:[233,249,241],textColor:ESC,fontStyle:'bold',fontSize:10},
+      alternateRowStyles:{fillColor:[248,250,252]},
+      columnStyles:{0:{cellWidth:9,halign:'center',textColor:[100,116,139]},1:{cellWidth:LOGO_W+4},2:{cellWidth:'auto',fontStyle:'bold'},
+        3:{cellWidth:18,halign:'right'},4:{cellWidth:36,halign:'right',fontStyle:'bold'},5:{cellWidth:22,halign:'right'}},
+      didParseCell:d=>{if(d.column.index>=3&&d.section!=='body')d.cell.styles.halign='right';},
+      didDrawCell:d=>{
+        if(d.section!=='body')return;
+        if(d.column.index===1){
+          const lg=logos[d.row.index];if(!lg)return;
+          const r=Math.min(LOGO_W/lg.w,LOGO_H/lg.h),w=lg.w*r,h=lg.h*r;
+          try{doc.addImage(lg.url,'JPEG',d.cell.x+(d.cell.width-w)/2,d.cell.y+(d.cell.height-h)/2,w,h);}catch(e){}
+        }
+        if(d.column.index===5&&soma){ // barrinha de participação
+          const p=linhas[d.row.index].total/soma;
+          doc.setFillColor(...VERDE);doc.rect(d.cell.x+2,d.cell.y+d.cell.height-2.2,(d.cell.width-4)*p,1,'F');
+        }
+      }
+    });
+
+    let yf=doc.lastAutoTable.finalY+7;
+    if(yf>H-24){doc.addPage();yf=20;}
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(100,116,139);
+    doc.text(doc.splitTextToSize('Soma dos valores das mesas concluídas, só de lojas ativas (mesmo critério do "Volume negociado" do Painel). '+
+      (coletiva>0?'A Compra Coletiva (R$ '+coletiva.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+') não entra — ela não pertence a nenhuma indústria da grade.':'A Compra Coletiva não entra — ela não pertence a nenhuma indústria da grade.'),W-2*M),M,yf);
+
+    const tot=doc.getNumberOfPages();
+    for(let p=1;p<=tot;p++){
+      doc.setPage(p);doc.setFontSize(7.5);doc.setTextColor(140,140,140);
+      doc.text('Gerado em '+agora+' - Positivação Coopefarma',M,H-7);
+      doc.text('Página '+p+' de '+tot,W-M,H-7,{align:'right'});
+    }
+    doc.save('total-por-industria-'+slugArq(titulo)+'.pdf');
+    toast('PDF gerado.');
+  }catch(e){console.error(e);toast('Erro ao gerar o PDF: '+e.message);}
+  finally{if(btn){btn.disabled=false;btn.textContent=txtBtn;}}
 }
 
 /* ── SORTEIO ────────────────────────────────────────────── */
