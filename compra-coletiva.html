@@ -126,6 +126,21 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
 .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
 .stat-card{background:#fff;border-radius:10px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.07)}
 .stat-num{font-size:2rem;font-weight:800;color:#15a563;font-family:'Poppins',sans-serif}
+.forn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.forn-card{border:1.5px solid #dbeafe;border-radius:12px;padding:14px 16px;background:#f8fbff}
+.forn-card.sem{border-color:#ffcdd2;background:#fff8f8}
+.forn-card-nome{font-family:'Poppins',sans-serif;font-weight:700;font-size:14px;color:#1565C0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.forn-card.sem .forn-card-nome{color:#c62828}
+.forn-card-ped{font-size:13px;color:#475569;margin-top:6px}
+.forn-card-ped span{font-family:'Poppins',sans-serif;font-size:30px;font-weight:800;color:#1a1a2e;margin-right:4px;line-height:1}
+.forn-card-bar{height:6px;background:#e2e8f0;border-radius:4px;margin-top:8px;overflow:hidden}
+.forn-card-bar div{height:100%;background:#1565C0;border-radius:4px}
+.forn-card.sem .forn-card-bar div{background:#c62828}
+.forn-card-pct{font-size:11px;color:#64748b;margin-top:4px}
+.forn-card-rod{display:flex;justify-content:space-between;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0}
+.forn-card-rod div{display:flex;flex-direction:column}
+.forn-card-rod b{font-size:13px;color:#1B5E20;white-space:nowrap}
+.forn-card-rod small{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px}
 .stat-label{font-size:11px;color:#888;margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
 
 /* ── EMPTY / LOADING ── */
@@ -455,6 +470,11 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
         </div>
       </div>
 
+      <div class="section-card" id="d-forn-section" style="display:none">
+        <h3>🏭 Pedidos por fornecedor</h3>
+        <div id="d-forn-wrap"></div>
+      </div>
+
       <div class="section-card">
         <h3>📋 Pedidos recebidos</h3>
         <div id="d-pedidos-wrap"><div class="loading-box"><div class="spin"></div></div></div>
@@ -705,6 +725,7 @@ async function carregarDetalhe(id){
 
   await renderPedidos();
   await renderConsolidado();
+  renderResumoFornecedor();
 }
 
 async function renderPedidos(){
@@ -1722,76 +1743,161 @@ function applySheetStyle(ws,noCols){
   return ws;
 }
 
+// Excel — Fornecedor: pedido consolidado SEPARADO POR FORNECEDOR
+// Aba "Consolidado": um bloco por fornecedor com subtotal, total geral e resumo.
+// Depois, uma aba por fornecedor (pronta para enviar a cada parceiro).
 async function exportarConsolidado(){
   const pedIds=_pedidosCache.map(p=>p.id);
   if(!pedIds.length){toast('Nenhum pedido.','err');return;}
   const{data:itens}=await sb.from('cc_pedido_itens').select('*').in('pedido_id',pedIds);
 
-  const mapProd={};const mapBonif={};
+  const ordemProd=id=>{const i=_produtosCache.findIndex(x=>x.id===id);return i<0?9999:i;};
+  const grupos={}; // fornecedor -> {prods:{}, bonifs:{}}
+  const g=f=>grupos[f]||(grupos[f]={prods:{},bonifs:{},peds:new Set()});
   (itens||[]).forEach(it=>{
+    const f=fornecedorDoItem(it);
     if(it.quantidade>0){
-      const k=it.produto_id;
-      if(!mapProd[k])mapProd[k]={descricao:it.descricao,ean:it.ean,total:0,valor:0};
-      mapProd[k].total+=it.quantidade;
-      mapProd[k].valor+=it.quantidade*(it.valor_unit||0);
+      g(f).peds.add(it.pedido_id);
+      const k=it.produto_id||it.ean;
+      const m=g(f).prods;
+      if(!m[k])m[k]={descricao:it.descricao,ean:it.ean,total:0,valor:0,ordem:ordemProd(it.produto_id)};
+      m[k].total+=it.quantidade;
+      m[k].valor+=it.quantidade*(it.valor_unit||0);
     }
     if(it.bonif_quantidade>0&&it.bonif_descricao){
       const k=it.bonif_ean||it.bonif_descricao;
-      if(!mapBonif[k])mapBonif[k]={descricao:it.bonif_descricao,ean:it.bonif_ean||'',total:0};
-      mapBonif[k].total+=it.bonif_quantidade;
+      const m=g(f).bonifs;
+      if(!m[k])m[k]={descricao:it.bonif_descricao,ean:it.bonif_ean||'',total:0};
+      m[k].total+=it.bonif_quantidade;
     }
   });
 
+  const lista=Object.keys(grupos)
+    .sort((a,b)=>a===SEM_FORN?1:b===SEM_FORN?-1:a.localeCompare(b,'pt-BR'))
+    .map(f=>{
+      const prods=Object.values(grupos[f].prods).sort((a,b)=>a.descricao.localeCompare(b.descricao,'pt-BR'));
+      const bonifs=Object.values(grupos[f].bonifs).sort((a,b)=>a.descricao.localeCompare(b.descricao,'pt-BR'));
+      return {fornecedor:f,prods,bonifs,nPed:grupos[f].peds.size,
+        qtd:prods.reduce((s,d)=>s+d.total,0),
+        valor:prods.reduce((s,d)=>s+d.valor,0)};
+    })
+    .filter(x=>x.prods.length||x.bonifs.length);
+  if(!lista.length){toast('Nenhum item com quantidade.','err');return;}
+
+  const semF=lista.find(x=>x.fornecedor===SEM_FORN);
+  if(semF&&!confirm(`${semF.prods.length} produto(s) com pedido estão sem fornecedor cadastrado e vão sair num bloco "${SEM_FORN}".\n\nPara corrigir: ✏️ Editar campanha → preencher Fornecedor → Salvar.\n\nExportar mesmo assim?`))return;
+
   const nm=(_campanhaCache.nome||'Coopefarma').replace(/[^a-zA-Z0-9]/g,'_');
+  const agora=new Date().toLocaleString('pt-BR');
   const wb=XLSX.utils.book_new();
-
-  // ── ABA 1: Pedido Fornecedor ──
-  const prodList=Object.values(mapProd).sort((a,b)=>a.descricao.localeCompare(b.descricao));
-  const bonifList=Object.values(mapBonif).sort((a,b)=>a.descricao.localeCompare(b.descricao));
-
   const NC=4;
-  const vaziaC=()=>Array(NC).fill(sc('',XS.vazio));
-  const gQtd=prodList.reduce((s,d)=>s+d.total,0);
-  const gValor=prodList.reduce((s,d)=>s+d.valor,0);
-
-  const rows1=[
-    [sc(_campanhaCache.nome+' — PEDIDO CONSOLIDADO',XS.titulo),...Array(NC-1).fill(sc('',XS.titulo))],
-    [sc('Gerado em: '+new Date().toLocaleString('pt-BR'),XS.sub),...Array(NC-1).fill(sc('',XS.sub))],
-    vaziaC(),
-    [sc('Descricao do Produto',XS.cab),sc('Codigo EAN',XS.cab),sc('Quantidade Total',XS.cabNum),sc('Valor Total (R$)',XS.cabNum)],
-    ...prodList.map((d,i)=>[
-      sc(d.descricao,i%2?XS.dadoAlt:XS.dado),
-      sc(d.ean,i%2?XS.dadoAlt:XS.dado),
-      sc(d.total,i%2?XS.numAlt:XS.num),
-      sc(Number(d.valor.toFixed(2)),i%2?XS.moedaAlt:XS.moeda)
-    ]),
-    [sc('TOTAL GERAL',XS.totCab),sc('',XS.totCab),sc(gQtd,XS.totNum),sc(Number(gValor.toFixed(2)),XS.totMoeda)]
+  const secForn={font:{bold:true,sz:12,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1565C0'}},alignment:{vertical:'center'}};
+  const linha=(txt,st)=>[sc(txt,st),...Array(NC-1).fill(sc('',st))];
+  const vazia=()=>Array(NC).fill(sc('',XS.vazio));
+  const cabProd=()=>[sc('Descricao do Produto',XS.cab),sc('Codigo EAN',XS.cab),sc('Quantidade Total',XS.cabNum),sc('Valor Total (R$)',XS.cabNum)];
+  const linhaProd=(d,i)=>[
+    sc(d.descricao,i%2?XS.dadoAlt:XS.dado),
+    sc(d.ean,i%2?XS.dadoAlt:XS.dado),
+    sc(d.total,i%2?XS.numAlt:XS.num),
+    sc(Number(d.valor.toFixed(2)),i%2?XS.moedaAlt:XS.moeda)
   ];
+  const cols=[{wch:55},{wch:20},{wch:18},{wch:18}];
 
-  const fimProd=rows1.length-1; // linha do total geral
+  // ── ABA 1: Consolidado (todos os fornecedores, com subtotal de cada um) ──
+  const rows=[linha(_campanhaCache.nome+' — PEDIDO CONSOLIDADO POR FORNECEDOR',XS.titulo),linha('Gerado em: '+agora,XS.sub),vazia()];
+  const merges=[{s:{r:0,c:0},e:{r:0,c:NC-1}},{s:{r:1,c:0},e:{r:1,c:NC-1}}];
+  const mLinha=r=>merges.push({s:{r,c:0},e:{r,c:NC-1}});
+  let gQtd=0,gValor=0;
 
-  if(bonifList.length){
-    rows1.push(vaziaC());
-    rows1.push([sc('BONIFICACOES GERADAS',XS.secBonif),...Array(NC-1).fill(sc('',XS.secBonif))]);
-    rows1.push([sc('Produto Bonificado',XS.cabBonif),sc('Codigo EAN',XS.cabBonif),sc('Qtd. Total',XS.cabBonifNum),sc('',XS.cabBonif)]);
-    bonifList.forEach((d,i)=>rows1.push([
+  lista.forEach(f=>{
+    if(!f.prods.length)return;
+    mLinha(rows.length);rows.push(linha('FORNECEDOR: '+f.fornecedor+'   —   '+f.nPed+' pedido(s)',secForn));
+    rows.push(cabProd());
+    f.prods.forEach((d,i)=>rows.push(linhaProd(d,i)));
+    const r=rows.length;
+    rows.push([sc('SUBTOTAL — '+f.fornecedor,XS.subCab),sc('',XS.subCab),sc(f.qtd,XS.subNum),sc(Number(f.valor.toFixed(2)),XS.subMoeda)]);
+    merges.push({s:{r,c:0},e:{r,c:1}});
+    rows.push(vazia());
+    gQtd+=f.qtd;gValor+=f.valor;
+  });
+
+  let r=rows.length;
+  rows.push([sc('TOTAL GERAL',XS.totCab),sc('',XS.totCab),sc(gQtd,XS.totNum),sc(Number(gValor.toFixed(2)),XS.totMoeda)]);
+  merges.push({s:{r,c:0},e:{r,c:1}});
+
+  // Resumo por fornecedor
+  rows.push(vazia());
+  mLinha(rows.length);rows.push(linha('RESUMO POR FORNECEDOR',secForn));
+  rows.push([sc('Fornecedor',XS.cab),sc('Pedidos (lojas)',XS.cabNum),sc('Quantidade Total',XS.cabNum),sc('Valor Total (R$)',XS.cabNum)]);
+  lista.filter(f=>f.prods.length).forEach((f,i)=>rows.push([
+    sc(f.fornecedor,i%2?XS.dadoAlt:XS.dado),
+    sc(f.nPed,i%2?XS.numAlt:XS.num),
+    sc(f.qtd,i%2?XS.numAlt:XS.num),
+    sc(Number(f.valor.toFixed(2)),i%2?XS.moedaAlt:XS.moeda)
+  ]));
+  const pedsDistintos=new Set((itens||[]).filter(i=>i.quantidade>0).map(i=>i.pedido_id)).size;
+  rows.push([sc('TOTAL GERAL (lojas distintas)',XS.totCab),sc(pedsDistintos,XS.totNum),sc(gQtd,XS.totNum),sc(Number(gValor.toFixed(2)),XS.totMoeda)]);
+
+  // Bonificações (com o fornecedor de origem)
+  const todasBonif=[];
+  lista.forEach(f=>f.bonifs.forEach(b=>todasBonif.push({...b,fornecedor:f.fornecedor})));
+  if(todasBonif.length){
+    rows.push(vazia());
+    mLinha(rows.length);rows.push(linha('BONIFICACOES GERADAS',XS.secBonif));
+    rows.push([sc('Produto Bonificado',XS.cabBonif),sc('Codigo EAN',XS.cabBonif),sc('Qtd. Total',XS.cabBonifNum),sc('Fornecedor',XS.cabBonif)]);
+    todasBonif.forEach((d,i)=>rows.push([
       sc(d.descricao,i%2?XS.dadoBonifAlt:XS.dado),
       sc(d.ean,i%2?XS.dadoBonifAlt:XS.dado),
       sc(Math.floor(d.total),i%2?XS.numBonifAlt:XS.numBonif),
-      sc('',i%2?XS.dadoBonifAlt:XS.dado)
+      sc(d.fornecedor,i%2?XS.dadoBonifAlt:XS.dado)
     ]));
   }
 
-  const s1=XLSX.utils.aoa_to_sheet(rows1);
-  s1['!merges']=[{s:{r:0,c:0},e:{r:0,c:NC-1}},{s:{r:1,c:0},e:{r:1,c:NC-1}},{s:{r:fimProd,c:0},e:{r:fimProd,c:1}}];
-  if(bonifList.length){
-    const bRow=fimProd+2;
-    s1['!merges'].push({s:{r:bRow,c:0},e:{r:bRow,c:NC-1}});
-  }
+  const s1=XLSX.utils.aoa_to_sheet(rows);
+  s1['!merges']=merges;
   s1['!rows']=[{hpt:24},{hpt:16}];
-  applySheetStyle(s1,[{wch:55},{wch:20},{wch:18},{wch:18}]);
-  XLSX.utils.book_append_sheet(wb,s1,'Pedido Fornecedor');
+  applySheetStyle(s1,cols);
+  const usados=new Set(['consolidado']);
+  XLSX.utils.book_append_sheet(wb,s1,'Consolidado');
+
+  // ── Uma aba por fornecedor ──
+  lista.forEach(f=>{
+    const rw=[
+      linha(_campanhaCache.nome+' — PEDIDO CONSOLIDADO',XS.titulo),
+      linha('Fornecedor: '+f.fornecedor+'   |   Pedidos: '+f.nPed+' loja(s)',XS.sub),
+      linha('Gerado em: '+agora,XS.sub),
+      vazia()
+    ];
+    const mg=[0,1,2].map(r=>({s:{r,c:0},e:{r,c:NC-1}}));
+    if(f.prods.length){
+      rw.push(cabProd());
+      f.prods.forEach((d,i)=>rw.push(linhaProd(d,i)));
+      const t=rw.length;
+      rw.push([sc('TOTAL — '+f.fornecedor,XS.totCab),sc('',XS.totCab),sc(f.qtd,XS.totNum),sc(Number(f.valor.toFixed(2)),XS.totMoeda)]);
+      mg.push({s:{r:t,c:0},e:{r:t,c:1}});
+    }
+    if(f.bonifs.length){
+      rw.push(vazia());
+      const b=rw.length;
+      rw.push(linha('BONIFICACOES GERADAS',XS.secBonif));
+      mg.push({s:{r:b,c:0},e:{r:b,c:NC-1}});
+      rw.push([sc('Produto Bonificado',XS.cabBonif),sc('Codigo EAN',XS.cabBonif),sc('Qtd. Total',XS.cabBonifNum),sc('',XS.cabBonif)]);
+      f.bonifs.forEach((d,i)=>rw.push([
+        sc(d.descricao,i%2?XS.dadoBonifAlt:XS.dado),
+        sc(d.ean,i%2?XS.dadoBonifAlt:XS.dado),
+        sc(Math.floor(d.total),i%2?XS.numBonifAlt:XS.numBonif),
+        sc('',i%2?XS.dadoBonifAlt:XS.dado)
+      ]));
+    }
+    const ws=XLSX.utils.aoa_to_sheet(rw);
+    ws['!merges']=mg;
+    ws['!rows']=[{hpt:24},{hpt:18},{hpt:16}];
+    applySheetStyle(ws,cols);
+    XLSX.utils.book_append_sheet(wb,ws,nomeAba(f.fornecedor,usados));
+  });
+
   XLSX.writeFile(wb,'Pedido_Consolidado_'+nm+'.xlsx');
+  toast('Excel gerado — '+lista.length+' fornecedor(es).','ok');
 }
 
 async function exportarDetalhado(){
@@ -2125,6 +2231,49 @@ function exportarPedidoPDF(pedidoId){
   toast('PDF gerado — '+lista.length+' fornecedor(es).','ok');
 }
 
+
+// ─────────────────────────────
+// RESUMO POR FORNECEDOR (tela de detalhe)
+// Pedidos = nº de lojas que pediram pelo menos 1 item daquele fornecedor
+// ─────────────────────────────
+function resumoPorFornecedor(itens){
+  const m={};
+  (itens||[]).forEach(it=>{
+    if(!(it.quantidade>0))return;
+    const f=fornecedorDoItem(it);
+    if(!m[f])m[f]={fornecedor:f,peds:new Set(),prods:new Set(),unid:0,valor:0};
+    m[f].peds.add(it.pedido_id);
+    m[f].prods.add(it.produto_id||it.ean);
+    m[f].unid+=it.quantidade;
+    m[f].valor+=it.quantidade*(it.valor_unit||0);
+  });
+  return Object.values(m).sort((a,b)=>a.fornecedor===SEM_FORN?1:b.fornecedor===SEM_FORN?-1:b.peds.size-a.peds.size||a.fornecedor.localeCompare(b.fornecedor,'pt-BR'));
+}
+
+function renderResumoFornecedor(){
+  const sec=document.getElementById('d-forn-section');
+  const lista=resumoPorFornecedor(_itensCache);
+  if(!lista.length){sec.style.display='none';return;}
+  const nPed=_pedidosCache.length;
+  const soSemForn=lista.length===1&&lista[0].fornecedor===SEM_FORN;
+  document.getElementById('d-forn-wrap').innerHTML=
+    (soSemForn?`<div style="background:#fff8e1;border-left:4px solid #f9a825;border-radius:8px;padding:10px 14px;font-size:13px;color:#7a5c00;margin-bottom:14px">⚠️ Nenhum produto desta campanha tem fornecedor cadastrado ainda. Use <strong>✏️ Editar campanha</strong> para preencher.</div>`:'')+
+    `<div class="forn-grid">`+lista.map(f=>{
+      const pct=nPed?Math.round(f.peds.size/nPed*100):0;
+      const sem=f.fornecedor===SEM_FORN;
+      return `<div class="forn-card${sem?' sem':''}">
+        <div class="forn-card-nome" title="${esc(f.fornecedor)}">${esc(f.fornecedor)}</div>
+        <div class="forn-card-ped"><span>${f.peds.size}</span> pedido(s)</div>
+        <div class="forn-card-bar"><div style="width:${pct}%"></div></div>
+        <div class="forn-card-pct">${pct}% das ${nPed} lojas que pediram</div>
+        <div class="forn-card-rod">
+          <div><b>${f.unid.toLocaleString('pt-BR')}</b><small>unidades</small></div>
+          <div><b>${f.prods.size}</b><small>produtos</small></div>
+          <div><b>R$ ${fmtBR(f.valor)}</b><small>valor</small></div>
+        </div>
+      </div>`;}).join('')+`</div>`;
+  sec.style.display='block';
+}
 
 // ─────────────────────────────
 // UTILITÁRIOS
