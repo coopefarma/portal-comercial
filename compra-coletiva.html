@@ -7,6 +7,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
@@ -84,6 +86,11 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
 .consol-table td.num{text-align:right;font-weight:700;color:#15a563;font-size:14px}
 .consol-table tr:hover td{background:#f0faf5}
 .bonif-table th{background:#7B5EA7 !important}
+.forn-tag{display:inline-block;background:#e8f1fb;color:#1565C0;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap}
+.forn-vazio{color:#c62828;font-size:11px;font-weight:600}
+.btn-exp{padding:6px 9px;font-size:12px;border-radius:8px;border:1.5px solid #ddd;background:#fff;cursor:pointer;font-weight:700;font-family:'Inter',sans-serif;transition:all .2s}
+.btn-exp.xls{color:#1B5E20}.btn-exp.xls:hover{border-color:#1B5E20;background:#e8f5e9}
+.btn-exp.pdf{color:#c62828}.btn-exp.pdf:hover{border-color:#c62828;background:#fdecea}
 .mono{font-family:'Courier New',monospace;font-size:12px}
 
 /* ── BONIFICAÇÃO ADMIN (tag no produto) ── */
@@ -344,6 +351,14 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
           <div class="field" style="flex:1"><label>Qtd. Mínima</label><input type="number" id="n-qtdmin" placeholder="0" min="0"/></div>
           <div class="field" style="flex:1"><label>Limite Total (un.)</label><input type="number" id="n-limite" placeholder="Sem limite" min="1"/></div>
         </div>
+        <div class="input-row" style="margin-top:12px">
+          <div class="field" style="flex:2;max-width:420px"><label>Fornecedor</label><input type="text" id="n-fornecedor" list="n-fornecedor-lista" placeholder="Ex: NEO QUIMICA" autocomplete="off"/></div>
+          <datalist id="n-fornecedor-lista"></datalist>
+          <div style="flex:3;min-width:220px;font-size:12px;color:#64748b;line-height:1.45;align-self:center">
+            Usado para separar o pedido de cada loja por fornecedor na exportação. O campo mantém o último fornecedor digitado para agilizar o cadastro em sequência.
+            <div id="n-forn-aplicar" style="display:none;margin-top:6px"></div>
+          </div>
+        </div>
         <div class="field" style="margin-top:4px">
           <label>Imagem do produto (opcional)</label>
           <div class="prod-img-upload">
@@ -379,7 +394,7 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
 
         <div style="margin-top:20px;overflow-x:auto;border-radius:8px;border:1px solid #e2e8f0">
           <table class="prod-table">
-            <thead><tr><th>#</th><th>Img</th><th>Descrição</th><th>EAN</th><th>Valor</th><th>Qtd Mín.</th><th>Limite</th><th>Condição Especial</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Img</th><th>Descrição</th><th>Fornecedor</th><th>EAN</th><th>Valor</th><th>Qtd Mín.</th><th>Limite</th><th>Condição Especial</th><th></th></tr></thead>
             <tbody id="n-tbody"></tbody>
           </table>
         </div>
@@ -434,7 +449,7 @@ body{font-family:'Inter',sans-serif;background:#f5f7fa;color:#1a1a2e}
         <h3>📦 Produtos desta campanha</h3>
         <div style="overflow-x:auto;border-radius:8px;border:1px solid #e2e8f0">
           <table class="prod-table">
-            <thead><tr><th>#</th><th>Img</th><th>Descrição</th><th>EAN</th><th>Valor</th><th>Qtd Mín.</th><th>Limite</th><th>Condição Especial</th></tr></thead>
+            <thead><tr><th>#</th><th>Img</th><th>Descrição</th><th>Fornecedor</th><th>EAN</th><th>Valor</th><th>Qtd Mín.</th><th>Limite</th><th>Condição Especial</th></tr></thead>
             <tbody id="d-tbody-prod"></tbody>
           </table>
         </div>
@@ -679,13 +694,14 @@ async function carregarDetalhe(id){
         <td style="color:#aaa">${i+1}</td>
         <td>${p.imagem_url?`<img src="${p.imagem_url}" class="prod-img-thumb" alt="img"/>`:'<span style="color:#ddd;font-size:18px">📷</span>'}</td>
         <td>${esc(p.descricao)}</td>
+        <td>${p.fornecedor?`<span class="forn-tag">${esc(p.fornecedor)}</span>`:'<span class="forn-vazio">sem fornecedor</span>'}</td>
         <td class="mono">${esc(p.ean)}</td>
         <td>${p.valor_unit!=null?'R$ '+fmtN(p.valor_unit):'—'}</td>
         <td>${p.qtd_min?`<span style="font-weight:700;color:#c62828">${p.qtd_min} un.</span>`:'—'}</td>
         <td>${p.limite_qtd?`<span style="font-weight:700;color:#1565C0">${p.limite_qtd} un.</span>`:'—'}</td>
         <td>${p.bonif_descricao?`<span class="bonif-tag">🎁 R$${fmtN(p.bonif_valor_unit)}/un → ${esc(p.bonif_descricao)} (R$${fmtN(p.bonif_prod_valor)})</span>`:'—'}</td>
       </tr>`).join('')
-    :'<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px">Nenhum produto</td></tr>';
+    :'<tr><td colspan="9" style="text-align:center;color:#aaa;padding:20px">Nenhum produto</td></tr>';
 
   await renderPedidos();
   await renderConsolidado();
@@ -718,6 +734,8 @@ async function renderPedidos(){
         <td style="text-align:right;font-weight:800;color:#1B5E20;white-space:nowrap">R$ ${fmtN(totalValor)}</td>
         <td>${bonifStr}</td>
         <td style="white-space:nowrap">
+          <button class="btn-exp xls" title="Exportar pedido para Excel — uma aba por fornecedor" onclick="exportarPedidoExcel('${p.id}')">📊 Excel</button>
+          <button class="btn-exp pdf" title="Exportar pedido para PDF — uma página por fornecedor" onclick="exportarPedidoPDF('${p.id}')">📄 PDF</button>
           <button class="btn btn-outline btn-sm" title="Editar pedido" onclick="abrirModalPedido('${p.id}')">✏️</button>
           <button class="btn btn-danger btn-sm" title="Excluir pedido" onclick="excluirPedido('${p.id}')">✕</button>
         </td>
@@ -1032,6 +1050,7 @@ function initNova(){
   document.getElementById('n-btn-salvar').textContent='💾 Criar Campanha';
   document.getElementById('n-aviso-edicao').style.display='none';
   limparCamposProduto();
+  document.getElementById('n-fornecedor').value='';
   document.getElementById('n-nome').value='';
   renderNovaProdutos();
 }
@@ -1051,7 +1070,7 @@ async function editarCampanha(){
   _prodOriginais=(prods||[]).map(p=>p.id);
   _novaProdutos=(prods||[]).map((p,i)=>({
     id:'db_'+p.id, dbId:p.id,
-    descricao:p.descricao, ean:p.ean, valor_unit:p.valor_unit,
+    descricao:p.descricao, ean:p.ean, valor_unit:p.valor_unit, fornecedor:p.fornecedor||null,
     qtd_min:p.qtd_min, limite_qtd:p.limite_qtd, ordem:i, imagem_url:p.imagem_url||null,
     bonif_descricao:p.bonif_descricao, bonif_ean:p.bonif_ean,
     bonif_prod_valor:p.bonif_prod_valor, bonif_valor_unit:p.bonif_valor_unit
@@ -1061,6 +1080,7 @@ async function editarCampanha(){
   document.getElementById('n-subtitulo').textContent='Altere os produtos e as condições desta campanha';
   document.getElementById('n-btn-salvar').textContent='💾 Salvar Alterações';
   document.getElementById('n-nome').value=camp.nome||'';
+  document.getElementById('n-fornecedor').value='';
 
   const nped=(peds||[]).length;
   const aviso=document.getElementById('n-aviso-edicao');
@@ -1150,6 +1170,7 @@ async function addProdNova(){
   const valor=parseFloat(document.getElementById('n-valor').value)||null;
   const qtdmin=parseInt(document.getElementById('n-qtdmin').value)||null;
   const limite=parseInt(document.getElementById('n-limite').value)||null;
+  const fornecedor=normForn(document.getElementById('n-fornecedor').value);
   const temBonif=document.getElementById('n-tem-bonif').checked;
   if(!desc){toast('Informe a descrição.','err');return;}
   if(!ean){toast('Informe o código EAN.','err');return;}
@@ -1169,7 +1190,7 @@ async function addProdNova(){
   const prod={
     id:editando?anterior.id:'novo_'+Date.now(),
     dbId:editando?anterior.dbId:undefined,
-    descricao:desc,ean,valor_unit:valor,qtd_min:qtdmin,limite_qtd:limite,
+    descricao:desc,ean,valor_unit:valor,qtd_min:qtdmin,limite_qtd:limite,fornecedor,
     ordem:editando?_editandoProdIdx:_novaProdutos.length,
     imagem_url:imagemUrl||(editando?anterior.imagem_url:null),
     bonif_descricao:null,bonif_ean:null,bonif_prod_valor:null,bonif_valor_unit:null
@@ -1189,6 +1210,7 @@ async function addProdNova(){
   else{_novaProdutos.push(prod);}
 
   limparCamposProduto();
+  document.getElementById('n-fornecedor').value=fornecedor||'';
   document.getElementById('n-desc').focus();
   renderNovaProdutos();
   toast(editando?'Produto atualizado!':'Produto adicionado!','ok');
@@ -1204,6 +1226,7 @@ function editarProdNova(i){
   document.getElementById('n-valor').value=p.valor_unit??'';
   document.getElementById('n-qtdmin').value=p.qtd_min??'';
   document.getElementById('n-limite').value=p.limite_qtd??'';
+  document.getElementById('n-fornecedor').value=p.fornecedor||'';
 
   const temBonif=!!p.bonif_descricao;
   const cb=document.getElementById('n-tem-bonif');
@@ -1247,6 +1270,7 @@ function removerProdNova(id){
 function renderNovaProdutos(){
   const tbody=document.getElementById('n-tbody');
   const empty=document.getElementById('n-empty');
+  atualizarListaFornecedores();
   if(!_novaProdutos.length){tbody.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
   tbody.innerHTML=_novaProdutos.map((p,i)=>{
@@ -1255,6 +1279,7 @@ function renderNovaProdutos(){
     <td style="color:#aaa">${i+1}</td>
     <td>${p.imagem_url?`<img src="${p.imagem_url}" class="prod-img-thumb" alt="img"/>`:'<span style="color:#ddd;font-size:18px">📷</span>'}</td>
     <td>${esc(p.descricao)}${emEdicao?' <small style="color:#f9a825;font-weight:700">(editando)</small>':''}</td>
+    <td>${p.fornecedor?`<span class="forn-tag">${esc(p.fornecedor)}</span>`:'<span class="forn-vazio">sem fornecedor</span>'}</td>
     <td class="mono">${esc(p.ean)}</td>
     <td>${p.valor_unit!=null?'R$ '+fmtN(p.valor_unit):'—'}</td>
     <td>${p.qtd_min?`<span style="font-weight:700;color:#c62828">${p.qtd_min} un.</span>`:'—'}</td>
@@ -1280,13 +1305,13 @@ async function salvarCampanha(){
   if(e1){toast('Erro: '+e1.message,'err');return;}
   const{error:e2}=await sb.from('cc_produtos').insert(
     _novaProdutos.map((p,i)=>({
-      campanha_id:camp.id,descricao:p.descricao,ean:p.ean,
+      campanha_id:camp.id,descricao:p.descricao,ean:p.ean,fornecedor:p.fornecedor||null,
       valor_unit:p.valor_unit,qtd_min:p.qtd_min,limite_qtd:p.limite_qtd||null,ordem:i,imagem_url:p.imagem_url||null,
       bonif_descricao:p.bonif_descricao,bonif_ean:p.bonif_ean,
       bonif_prod_valor:p.bonif_prod_valor,bonif_valor_unit:p.bonif_valor_unit
     }))
   );
-  if(e2){toast('Erro ao salvar produtos: '+e2.message,'err');return;}
+  if(e2){toast(msgErroForn(e2,'Erro ao salvar produtos: '),'err');return;}
   toast('Campanha criada!','ok');campanhaId=camp.id;irPara('detalhe');
 }
 
@@ -1300,7 +1325,7 @@ async function atualizarCampanha(nome){
   if(eNome){toast('Erro ao salvar o nome: '+eNome.message,'err');restaurar();return;}
 
   const campos=p=>({
-    descricao:p.descricao,ean:p.ean,valor_unit:p.valor_unit,
+    descricao:p.descricao,ean:p.ean,valor_unit:p.valor_unit,fornecedor:p.fornecedor||null,
     qtd_min:p.qtd_min||null,limite_qtd:p.limite_qtd||null,imagem_url:p.imagem_url||null,
     bonif_descricao:p.bonif_descricao||null,bonif_ean:p.bonif_ean||null,
     bonif_prod_valor:p.bonif_prod_valor??null,bonif_valor_unit:p.bonif_valor_unit??null
@@ -1312,7 +1337,7 @@ async function atualizarCampanha(nome){
     const p=_novaProdutos[i];
     if(!p.dbId)continue;
     const{error}=await sb.from('cc_produtos').update({...campos(p),ordem:i}).eq('id',p.dbId);
-    if(error){toast('Erro ao atualizar "'+p.descricao+'": '+error.message,'err');restaurar();return;}
+    if(error){toast(msgErroForn(error,'Erro ao atualizar "'+p.descricao+'": '),'err');restaurar();return;}
   }
 
   // 2) Insere os produtos novos
@@ -1321,7 +1346,7 @@ async function atualizarCampanha(nome){
     const{error}=await sb.from('cc_produtos').insert(
       novos.map(({p,i})=>({campanha_id:_editandoId,...campos(p),ordem:i}))
     );
-    if(error){toast('Erro ao inserir novos produtos: '+error.message,'err');restaurar();return;}
+    if(error){toast(msgErroForn(error,'Erro ao inserir novos produtos: '),'err');restaurar();return;}
   }
 
   // 3) Remove os que foram excluídos da lista
@@ -1846,6 +1871,260 @@ async function exportarDetalhado(){
   XLSX.utils.book_append_sheet(wb,s,'Pedidos Detalhados');
   XLSX.writeFile(wb,'Pedidos_Detalhados_'+nm+'.xlsx');
 }
+
+// ─────────────────────────────
+// FORNECEDOR — cadastro no produto e exportação do pedido por fornecedor
+// ─────────────────────────────
+const SEM_FORN='SEM FORNECEDOR';
+function normForn(v){return String(v||'').replace(/\s+/g,' ').trim().toUpperCase()||null;}
+
+// Se a coluna ainda não foi criada no Supabase, explica o que fazer
+function msgErroForn(err,prefixo){
+  const m=err?.message||String(err);
+  if(/fornecedor/i.test(m)){
+    const txt='A coluna "fornecedor" ainda não existe no banco. Rode o arquivo supabase-fornecedor-compra-coletiva.sql no SQL Editor do Supabase e salve de novo.';
+    alert(txt);return txt;
+  }
+  return prefixo+m;
+}
+
+// Sugestões do campo Fornecedor + aviso de produtos sem fornecedor
+function atualizarListaFornecedores(){
+  const set=new Set();
+  _novaProdutos.forEach(p=>{if(p.fornecedor)set.add(p.fornecedor);});
+  (_produtosCache||[]).forEach(p=>{if(p.fornecedor)set.add(normForn(p.fornecedor));});
+  const dl=document.getElementById('n-fornecedor-lista');
+  if(dl)dl.innerHTML=[...set].sort((a,b)=>a.localeCompare(b,'pt-BR')).map(f=>`<option value="${esc(f)}">`).join('');
+  const box=document.getElementById('n-forn-aplicar');
+  if(!box)return;
+  const semForn=_novaProdutos.filter(p=>!p.fornecedor).length;
+  if(semForn){
+    box.style.display='block';
+    box.innerHTML=`<span class="forn-vazio">⚠️ ${semForn} produto(s) sem fornecedor.</span> <button type="button" class="btn btn-outline btn-sm" style="margin-left:6px" onclick="aplicarFornecedorSemForn()">Aplicar o fornecedor digitado a esses produtos</button>`;
+  }else{box.style.display='none';box.innerHTML='';}
+}
+
+function aplicarFornecedorSemForn(){
+  const f=normForn(document.getElementById('n-fornecedor').value);
+  if(!f){toast('Digite o fornecedor no campo primeiro.','err');document.getElementById('n-fornecedor').focus();return;}
+  const alvo=_novaProdutos.filter(p=>!p.fornecedor);
+  if(!alvo.length)return;
+  if(!confirm(`Aplicar o fornecedor "${f}" a ${alvo.length} produto(s) sem fornecedor?\n\nA mudança só é gravada quando você clicar em "${_editandoId?'Salvar Alterações':'Criar Campanha'}".`))return;
+  alvo.forEach(p=>{p.fornecedor=f;});
+  renderNovaProdutos();
+  toast(alvo.length+' produto(s) atualizados — clique em Salvar para gravar.','ok');
+}
+
+// Fornecedor de um item do pedido: busca pelo produto atual da campanha
+// (assim, preencher o fornecedor depois vale também para pedidos já enviados)
+function fornecedorDoItem(it){
+  let p=_produtosCache.find(x=>x.id===it.produto_id);
+  if(!p&&it.ean)p=_produtosCache.find(x=>x.ean===it.ean);
+  return normForn(p?.fornecedor)||SEM_FORN;
+}
+
+function montarPedidoPorFornecedor(pedidoId){
+  const ped=_pedidosCache.find(p=>p.id===pedidoId);
+  if(!ped){toast('Pedido não encontrado.','err');return null;}
+  const its=_itensCache.filter(i=>i.pedido_id===pedidoId&&(i.quantidade||0)>0);
+  if(!its.length){toast('Este pedido não tem itens com quantidade.','err');return null;}
+  const ordemProd=id=>{const i=_produtosCache.findIndex(x=>x.id===id);return i<0?9999:i;};
+  const grupos={};
+  its.forEach(it=>{const f=fornecedorDoItem(it);(grupos[f]=grupos[f]||[]).push(it);});
+  const lista=Object.keys(grupos)
+    .sort((a,b)=>a===SEM_FORN?1:b===SEM_FORN?-1:a.localeCompare(b,'pt-BR'))
+    .map(f=>{
+      const itens=grupos[f].sort((a,b)=>ordemProd(a.produto_id)-ordemProd(b.produto_id)||String(a.descricao||'').localeCompare(String(b.descricao||''),'pt-BR'));
+      const qtd=itens.reduce((s,i)=>s+(i.quantidade||0),0);
+      const valor=itens.reduce((s,i)=>s+(i.quantidade||0)*(i.valor_unit||0),0);
+      const bonifs=itens.filter(i=>Math.floor(i.bonif_quantidade||0)>0&&i.bonif_descricao);
+      return {fornecedor:f,itens,qtd,valor,bonifs};
+    });
+  return {ped,lista};
+}
+
+function confirmarSemForn(r){
+  const g=r.lista.find(x=>x.fornecedor===SEM_FORN);
+  if(!g)return true;
+  return confirm(`${g.itens.length} item(ns) deste pedido são de produtos sem fornecedor cadastrado e vão sair separados como "${SEM_FORN}".\n\nPara corrigir: ✏️ Editar campanha → ✏️ no produto → preencher Fornecedor → Salvar.\n\nExportar mesmo assim?`);
+}
+
+function nomeArqPedido(ped,ext){
+  const limpa=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+  return 'Pedido_'+limpa(ped.razao_social).slice(0,50)+'_'+limpa(_campanhaCache.nome).slice(0,70)+'.'+ext;
+}
+function fmtBR(v){return Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function nomeAba(f,usados){
+  const base=String(f).replace(/[\[\]:*?\/\\]/g,' ').replace(/\s+/g,' ').trim().slice(0,31)||'Fornecedor';
+  let n=base,k=2;
+  while(usados.has(n.toLowerCase())){const suf=' ('+(k++)+')';n=base.slice(0,31-suf.length)+suf;}
+  usados.add(n.toLowerCase());
+  return n;
+}
+
+// ── EXCEL: uma aba por fornecedor ──
+function exportarPedidoExcel(pedidoId){
+  const r=montarPedidoPorFornecedor(pedidoId);if(!r)return;
+  if(!confirmarSemForn(r))return;
+  const{ped,lista}=r;
+  const wb=XLSX.utils.book_new();
+  const usados=new Set();
+  const dtPed=new Date(ped.created_at).toLocaleString('pt-BR');
+  const agora=new Date().toLocaleString('pt-BR');
+  const NC=5;
+  const linha=(txt,st)=>[sc(txt,st),...Array(NC-1).fill(sc('',st))];
+  const vazia=()=>Array(NC).fill(sc('',XS.vazio));
+
+  lista.forEach(g=>{
+    const rows=[
+      linha((_campanhaCache.nome||'Compra Coletiva')+' — PEDIDO',XS.titulo),
+      linha('Fornecedor: '+g.fornecedor,XS.sub),
+      linha('Associado: '+ped.razao_social+'   |   CNPJ: '+ped.cnpj,XS.sub),
+      linha('Pedido em: '+dtPed+'   |   Gerado em: '+agora,XS.sub),
+      vazia(),
+      [sc('Descricao do Produto',XS.cab),sc('Codigo EAN',XS.cab),sc('Quantidade',XS.cabNum),sc('Valor Unit. (R$)',XS.cabNum),sc('Valor Total (R$)',XS.cabNum)],
+      ...g.itens.map((it,i)=>[
+        sc(it.descricao,i%2?XS.dadoAlt:XS.dado),
+        sc(it.ean,i%2?XS.dadoAlt:XS.dado),
+        sc(it.quantidade,i%2?XS.numAlt:XS.num),
+        sc(it.valor_unit!=null?Number(it.valor_unit):'',i%2?XS.moedaAlt:XS.moeda),
+        sc(Number(((it.quantidade||0)*(it.valor_unit||0)).toFixed(2)),i%2?XS.moedaAlt:XS.moeda)
+      ]),
+      [sc('TOTAL — '+g.fornecedor,XS.totCab),sc('',XS.totCab),sc(g.qtd,XS.totNum),sc('',XS.totNum),sc(Number(g.valor.toFixed(2)),XS.totMoeda)]
+    ];
+    const fimProd=rows.length-1;
+    const merges=[0,1,2,3].map(r=>({s:{r,c:0},e:{r,c:NC-1}}));
+    merges.push({s:{r:fimProd,c:0},e:{r:fimProd,c:1}});
+
+    if(g.bonifs.length){
+      rows.push(vazia());
+      const tRow=rows.length;
+      rows.push(linha('BONIFICACOES',XS.secBonif));
+      merges.push({s:{r:tRow,c:0},e:{r:tRow,c:NC-1}});
+      rows.push([sc('Produto Bonificado',XS.cabBonif),sc('Codigo EAN',XS.cabBonif),sc('Qtd.',XS.cabBonifNum),sc('Referente a',XS.cabBonif),sc('',XS.cabBonif)]);
+      g.bonifs.forEach((it,i)=>{
+        const r=rows.length;
+        rows.push([
+          sc(it.bonif_descricao,i%2?XS.dadoBonifAlt:XS.dado),
+          sc(it.bonif_ean||'',i%2?XS.dadoBonifAlt:XS.dado),
+          sc(Math.floor(it.bonif_quantidade),i%2?XS.numBonifAlt:XS.numBonif),
+          sc(it.descricao,i%2?XS.dadoBonifAlt:XS.dado),
+          sc('',i%2?XS.dadoBonifAlt:XS.dado)
+        ]);
+        merges.push({s:{r,c:3},e:{r,c:4}});
+      });
+    }
+
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!merges']=merges;
+    ws['!rows']=[{hpt:24},{hpt:18},{hpt:16},{hpt:16}];
+    applySheetStyle(ws,[{wch:55},{wch:18},{wch:13},{wch:17},{wch:18}]);
+    XLSX.utils.book_append_sheet(wb,ws,nomeAba(g.fornecedor,usados));
+  });
+  XLSX.writeFile(wb,nomeArqPedido(ped,'xlsx'));
+  toast('Excel gerado — '+lista.length+' fornecedor(es).','ok');
+}
+
+// ── PDF: uma página (ou mais, se a lista for longa) por fornecedor ──
+function exportarPedidoPDF(pedidoId){
+  if(!window.jspdf||!window.jspdf.jsPDF){toast('A biblioteca de PDF não carregou. Recarregue a página (F5) e tente de novo.','err');return;}
+  const r=montarPedidoPorFornecedor(pedidoId);if(!r)return;
+  if(!confirmarSemForn(r))return;
+  const{ped,lista}=r;
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  if(typeof doc.autoTable!=='function'){toast('A biblioteca de tabelas do PDF não carregou. Recarregue a página (F5).','err');return;}
+  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=12;
+  const VERDE=[21,165,99],VERDE_ESC=[27,94,32],AZUL=[21,101,192],ROXO=[123,94,167];
+  const dtPed=new Date(ped.created_at).toLocaleString('pt-BR');
+  const agora=new Date().toLocaleString('pt-BR');
+
+  lista.forEach((g,gi)=>{
+    if(gi>0)doc.addPage();
+
+    // Faixa do topo
+    doc.setFillColor(...VERDE);doc.rect(0,0,W,22,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');doc.setFontSize(14);
+    doc.text('COOPEFARMA - COMPRA COLETIVA',M,10);
+    doc.setFont('helvetica','normal');doc.setFontSize(9.5);
+    doc.text(doc.splitTextToSize(_campanhaCache.nome||'',W-2*M-45)[0]||'',M,16.5);
+    doc.setFontSize(8.5);
+    doc.text('Fornecedor '+(gi+1)+' de '+lista.length,W-M,16.5,{align:'right'});
+
+    // Fornecedor
+    let y=31;
+    doc.setTextColor(100,116,139);doc.setFont('helvetica','bold');doc.setFontSize(8);
+    doc.text('PEDIDO PARA O FORNECEDOR',M,y);
+    doc.setTextColor(...AZUL);doc.setFontSize(16);
+    doc.text(doc.splitTextToSize(g.fornecedor,W-2*M)[0],M,y+7);
+    y+=13;
+
+    // Dados do associado
+    doc.setDrawColor(226,232,240);doc.setFillColor(248,250,252);
+    doc.roundedRect(M,y,W-2*M,17,2,2,'FD');
+    const col=[M+4,M+4+(W-2*M)*0.55,M+4+(W-2*M)*0.78];
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(100,116,139);
+    doc.text('RAZÃO SOCIAL',col[0],y+6);doc.text('CNPJ',col[1],y+6);doc.text('DATA DO PEDIDO',col[2],y+6);
+    doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(26,26,46);
+    doc.text(doc.splitTextToSize(ped.razao_social||'',(W-2*M)*0.53)[0]||'',col[0],y+12.5);
+    doc.text(String(ped.cnpj||''),col[1],y+12.5);
+    doc.text(dtPed,col[2],y+12.5);
+    y+=23;
+
+    // Itens
+    doc.autoTable({
+      startY:y,
+      head:[['Descrição do Produto','EAN','Qtd.','Valor Unit.','Valor Total']],
+      body:g.itens.map(it=>[
+        it.descricao||'',it.ean||'',String(it.quantidade||0),
+        it.valor_unit!=null?'R$ '+fmtBR(it.valor_unit):'-',
+        'R$ '+fmtBR((it.quantidade||0)*(it.valor_unit||0))
+      ]),
+      foot:[[{content:'TOTAL - '+g.itens.length+' item(ns)',colSpan:2},String(g.qtd),'',{content:'R$ '+fmtBR(g.valor)}]],
+      showFoot:'lastPage',
+      theme:'grid',
+      margin:{left:M,right:M,top:14,bottom:16},
+      styles:{font:'helvetica',fontSize:8.5,cellPadding:2,textColor:[26,26,46],lineColor:[226,232,240],lineWidth:0.2},
+      headStyles:{fillColor:VERDE_ESC,textColor:255,fontStyle:'bold'},
+      footStyles:{fillColor:[232,245,233],textColor:VERDE_ESC,fontStyle:'bold',fontSize:10},
+      alternateRowStyles:{fillColor:[248,250,252]},
+      columnStyles:{0:{cellWidth:'auto'},1:{cellWidth:32,font:'courier',fontSize:8},2:{cellWidth:16,halign:'right'},3:{cellWidth:25,halign:'right'},4:{cellWidth:28,halign:'right'}},
+      didParseCell:d=>{if(d.section!=='body'&&d.column.index>=2)d.cell.styles.halign='right';}
+    });
+    y=doc.lastAutoTable.finalY+8;
+
+    // Bonificações deste fornecedor
+    if(g.bonifs.length){
+      if(y>H-45){doc.addPage();y=18;}
+      doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(...ROXO);
+      doc.text('BONIFICAÇÕES',M,y);
+      doc.autoTable({
+        startY:y+3,
+        head:[['Produto Bonificado','EAN','Qtd.','Referente a']],
+        body:g.bonifs.map(it=>[it.bonif_descricao||'',it.bonif_ean||'-',String(Math.floor(it.bonif_quantidade)),it.descricao||'']),
+        theme:'grid',
+        margin:{left:M,right:M,top:14,bottom:16},
+        styles:{font:'helvetica',fontSize:8.5,cellPadding:2,textColor:[26,26,46],lineColor:[226,232,240],lineWidth:0.2},
+        headStyles:{fillColor:ROXO,textColor:255,fontStyle:'bold'},
+        columnStyles:{1:{cellWidth:32,font:'courier',fontSize:8},2:{cellWidth:16,halign:'right'}},
+        didParseCell:d=>{if(d.section==='head'&&d.column.index===2)d.cell.styles.halign='right';}
+      });
+    }
+  });
+
+  // Rodapé com paginação
+  const tot=doc.getNumberOfPages();
+  for(let i=1;i<=tot;i++){
+    doc.setPage(i);
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(140,140,140);
+    doc.text('Gerado em '+agora+' - CompraCoop Coopefarma',M,H-7);
+    doc.text('Página '+i+' de '+tot,W-M,H-7,{align:'right'});
+  }
+  doc.save(nomeArqPedido(ped,'pdf'));
+  toast('PDF gerado — '+lista.length+' fornecedor(es).','ok');
+}
+
 
 // ─────────────────────────────
 // UTILITÁRIOS
